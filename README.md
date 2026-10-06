@@ -101,6 +101,11 @@ pnpm dev
 - [Scripts](resource/docs/scripts.md) — daily commands and the one-time `pnpm run init` note
 - [Architecture](resource/docs/architecture.md) — Electron's three-process layout and the source tree
 
+## Todo
+
+- [ ] **Keep-awake option** — add an option per OS (macOS/Linux/Windows) to prevent the laptop from going into sleep mode when the lid is closed, so long-running tmux sessions stay alive.
+  - ⚠️ Disclaimer: used at your own risk — with lid-close sleep disabled, the laptop keeps running while closed, so it may overheat or drain its battery because it will not sleep when the lid is closed.
+
 ## Contributing
 
 Issues and pull requests are welcome on [GitHub](https://github.com/beecode-rs/tmux-companion/issues). Keep the [status](#status-proof-of-concept) in mind — the codebase is still a POC, so structural cleanups and platform testing are the most useful contributions.
