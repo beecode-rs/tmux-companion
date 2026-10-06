@@ -1,0 +1,152 @@
+.instance-dialog-overlay {
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  height: 100vh;
+  justify-content: center;
+  left: 0;
+  position: fixed;
+  top: 0;
+  width: 100vw;
+  z-index: 100;
+}
+
+.instance-dialog {
+  background-color: #1b1b1e;
+  border: 1px solid #2c2c30;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color: #d6d6da;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 18px;
+  width: 440px;
+}
+
+.instance-dialog-title {
+  color: #f0f0f2;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.instance-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.instance-dialog-field-label {
+  color: #a9a9b0;
+  font-size: 11px;
+}
+
+.instance-dialog-field-error {
+  color: #e08080;
+  font-size: 11px;
+}
+
+.instance-dialog-input {
+  background-color: #111111;
+  border: 1px solid #3a3a41;
+  border-radius: 6px;
+  color: #f0f0f2;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.instance-dialog-input:focus {
+  border-color: #5a5a63;
+  outline: none;
+}
+
+.instance-dialog-input::placeholder {
+  color: #6c6c74;
+}
+
+.instance-dialog-form-error {
+  color: #e08080;
+  font-size: 12px;
+}
+
+.instance-dialog-test-row {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.instance-dialog-test {
+  background: transparent;
+  border: 1px solid #3a3a41;
+  border-radius: 6px;
+  color: #a9a9b0;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.instance-dialog-test:hover:not(:disabled) {
+  border-color: #5a5a63;
+  color: #f0f0f2;
+}
+
+.instance-dialog-test:disabled {
+  color: #7c7c84;
+  cursor: default;
+}
+
+.instance-dialog-test-result {
+  font-size: 11px;
+  word-break: break-word;
+}
+
+.instance-dialog-test-result.is-success {
+  color: #7dc48e;
+}
+
+.instance-dialog-test-result.is-error {
+  color: #e08080;
+}
+
+.instance-dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.instance-dialog-cancel {
+  background: transparent;
+  border: 1px solid #3a3a41;
+  border-radius: 6px;
+  color: #a9a9b0;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.instance-dialog-cancel:hover {
+  color: #f0f0f2;
+}
+
+.instance-dialog-submit {
+  background-color: #38383f;
+  border: none;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 14px;
+}
+
+.instance-dialog-submit:hover:not(:disabled) {
+  background-color: #45454e;
+}
+
+.instance-dialog-submit:disabled {
+  color: #7c7c84;
+  cursor: default;
+}

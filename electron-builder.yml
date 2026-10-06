@@ -1,0 +1,35 @@
+appId: com.tmux-companion.app
+productName: Tmux Companion
+directories:
+  output: dist
+files:
+  - out/**
+  - build/icons/512x512.png
+  # node-pty is rebuilt per-arch into build/Release by electron-builder; its runtime
+  # loader never reads bin/ (install-time cache) or prebuilds/ (Node-ABI prebuilds,
+  # only consulted when build/Release is missing). Both ship byte-identical into the
+  # x64 and arm64 per-arch builds, which @electron/universal rejects (identical
+  # Mach-O across arch builds) — so they are excluded from packaging entirely.
+  - '!**/node-pty/bin/**'
+  - '!**/node-pty/prebuilds/**'
+asar: true
+mac:
+  category: public.app-category.developer-tools
+  identity: null
+  artifactName: Tmux-Companion-${version}-${arch}.dmg
+  target:
+    - target: dmg
+      arch:
+        - universal
+linux:
+  category: Utility
+  maintainer: milos
+  executableName: tmux-companion
+  syncDesktopName: true
+  target:
+    - AppImage
+    - deb
+appImage:
+  artifactName: Tmux-Companion-${version}.${ext}
+deb:
+  artifactName: tmux-companion_${version}_${arch}.deb

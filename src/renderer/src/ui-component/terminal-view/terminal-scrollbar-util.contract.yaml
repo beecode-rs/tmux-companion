@@ -1,0 +1,133 @@
+subject: terminalScrollbarUtil
+module: ./terminal-scrollbar-util.js
+subjectType: function
+methods:
+  toDragScroll:
+    terms:
+      # Dragging upwards: the target position is further from the bottom.
+      - params:
+          - fromPosition: 10
+            toPosition: 25
+        result:
+          direction: up
+          lines: 15
+      # Dragging downwards: the target position is closer to the bottom.
+      - params:
+          - fromPosition: 25
+            toPosition: 10
+        result:
+          direction: down
+          lines: 15
+      # No position change: nothing to send.
+      - params:
+          - fromPosition: 7
+            toPosition: 7
+        result: null
+  toThumbGeometry:
+    terms:
+      # Bottom of a 100-line history with a 50-row viewport over a 300px
+      # track: the thumb covers a third of the track and sits at the bottom.
+      - params:
+          - historySize: 100
+            minThumbPx: 20
+            position: 0
+            rows: 50
+            trackHeightPx: 300
+        result:
+          thumbHeightPx: 100
+          thumbTopPx: 200
+      # Scrolled to the very top: the thumb rests against the track top.
+      - params:
+          - historySize: 100
+            minThumbPx: 20
+            position: 100
+            rows: 50
+            trackHeightPx: 300
+        result:
+          thumbHeightPx: 100
+          thumbTopPx: 0
+      # Halfway through the history.
+      - params:
+          - historySize: 100
+            minThumbPx: 20
+            position: 50
+            rows: 50
+            trackHeightPx: 300
+        result:
+          thumbHeightPx: 100
+          thumbTopPx: 100
+      # Huge history: the thumb clamps to the minimum visible size.
+      - params:
+          - historySize: 10000
+            minThumbPx: 24
+            position: 5000
+            rows: 24
+            trackHeightPx: 300
+        result:
+          thumbHeightPx: 24
+          thumbTopPx: 138
+      # No history: a full-track thumb pinned to the top.
+      - params:
+          - historySize: 0
+            minThumbPx: 20
+            position: 0
+            rows: 50
+            trackHeightPx: 300
+        result:
+          thumbHeightPx: 300
+          thumbTopPx: 0
+      # Position overshooting the history clamps to the top.
+      - params:
+          - historySize: 100
+            minThumbPx: 20
+            position: 150
+            rows: 50
+            trackHeightPx: 300
+        result:
+          thumbHeightPx: 100
+          thumbTopPx: 0
+  toTrackPosition:
+    terms:
+      # Pointer at the track top maps to the history top.
+      - params:
+          - historySize: 100
+            pointerTopPx: 0
+            thumbHeightPx: 100
+            trackHeightPx: 300
+        result: 100
+      # Pointer at the bottom of the scrollable range maps to the history
+      # bottom.
+      - params:
+          - historySize: 100
+            pointerTopPx: 200
+            thumbHeightPx: 100
+            trackHeightPx: 300
+        result: 0
+      # Pointer in the middle of the scrollable range.
+      - params:
+          - historySize: 100
+            pointerTopPx: 100
+            thumbHeightPx: 100
+            trackHeightPx: 300
+        result: 50
+      # Pointer above the track clamps to the history top.
+      - params:
+          - historySize: 100
+            pointerTopPx: -50
+            thumbHeightPx: 100
+            trackHeightPx: 300
+        result: 100
+      # Pointer below the track clamps to the history bottom.
+      - params:
+          - historySize: 100
+            pointerTopPx: 999
+            thumbHeightPx: 100
+            trackHeightPx: 300
+        result: 0
+      # Degenerate geometry: nothing scrollable.
+      - params:
+          - historySize: 100
+            pointerTopPx: 50
+            thumbHeightPx: 300
+            trackHeightPx: 300
+        result: 0

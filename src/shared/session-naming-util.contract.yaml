@@ -1,0 +1,129 @@
+subject: sessionNamingUtil
+module: ./session-naming-util.js
+subjectType: function
+methods:
+  toCloneSessionName:
+    terms:
+      # Zero: source without digits, nothing taken starts at 01.
+      - params:
+          - names: []
+            sourceName: work
+        result: work01
+      # Source without digits, first suggestion taken (plain name occupies no number).
+      - params:
+          - names: [work, work01]
+            sourceName: work
+        result: work02
+      # Source with digits: strictly greater than the source's trailing number.
+      - params:
+          - names: [work01, work02]
+            sourceName: work01
+        result: work03
+      # Default sNN family clones the same way.
+      - params:
+          - names: [s01, s02]
+            sourceName: s01
+        result: s03
+      # Gap fill: smallest free number wins over max+1.
+      - params:
+          - names: [work01, work03]
+            sourceName: work01
+        result: work02
+      # Digit-run width preserved (work05 -> work06, not work010).
+      - params:
+          - names: []
+            sourceName: work05
+        result: work06
+      # Single-digit width grows naturally when the number needs more digits.
+      - params:
+          - names: [work9]
+            sourceName: work9
+        result: work10
+      # All-digit name: empty prefix still derives the next number.
+      - params:
+          - names: ['123']
+            sourceName: '123'
+        result: '124'
+      # Hyphenated name keeps the dash in the prefix.
+      - params:
+          - names: [my-work]
+            sourceName: my-work
+        result: my-work01
+      # Non-numeric suffix never occupies a number.
+      - params:
+          - names: [work7x]
+            sourceName: work
+        result: work01
+      # Number-level check: work1 takes number 1 even though 'work01' is absent.
+      - params:
+          - names: [work1]
+            sourceName: work
+        result: work02
+  toNextSessionName:
+    terms:
+      # Zero: empty list starts at s01 (fallback when no sessions exist).
+      - params:
+          - names: []
+        result: s01
+      # One: next after a single session.
+      - params:
+          - names: [s01]
+        result: s02
+      # Many: s03 when s01/s02 exist.
+      - params:
+          - names: [s01, s02]
+        result: s03
+      # Numbering is numeric, not lexical: after s9 comes s10.
+      - params:
+          - names: [s9]
+        result: s10
+      # Two-digit numbers pass through padStart untouched.
+      - params:
+          - names: [s10]
+        result: s11
+      # Numbers beyond two digits are not truncated (padStart semantics).
+      - params:
+          - names: [s99]
+        result: s100
+      # Legacy suffixed names are never counted by numbering.
+      - params:
+          - names: [s01-a3f9c2, s02-a3f9c2]
+        result: s01
+      # Non-sN names (work, misc) are ignored by numbering.
+      - params:
+          - names: [work, misc]
+        result: s01
+      # Mixed list: only sNN counts (work ignored).
+      - params:
+          - names: [s01, work]
+        result: s02
+      # Unsorted input still finds the max.
+      - params:
+          - names: [s03, s01, s07]
+        result: s08
+  validateSessionName:
+    terms:
+      # Plain name accepted.
+      - params: [work]
+        result: null
+      # Dashes and underscores accepted.
+      - params: [my-work_1]
+        result: null
+      # Upper boundary: 40 chars accepted.
+      - params: [aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]
+        result: null
+      # Dot rejected (tmux forbids).
+      - params: [a.b]
+        result: "Session names cannot contain '.' or ':'"
+      # Colon rejected (tmux forbids).
+      - params: [a:b]
+        result: "Session names cannot contain '.' or ':'"
+      # 41 chars rejected.
+      - params: [aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa]
+        result: 'Session name must be 1-40 characters (letters, numbers, _ and -)'
+      # Empty rejected.
+      - params: ['']
+        result: 'Session name cannot be empty'
+      # Space rejected by charset rule.
+      - params: [my work]
+        result: 'Session name must be 1-40 characters (letters, numbers, _ and -)'

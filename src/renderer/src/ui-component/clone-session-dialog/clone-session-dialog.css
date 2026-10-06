@@ -1,0 +1,106 @@
+.clone-session-dialog-overlay {
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  height: 100vh;
+  justify-content: center;
+  left: 0;
+  position: fixed;
+  top: 0;
+  width: 100vw;
+  z-index: 100;
+}
+
+.clone-session-dialog {
+  background-color: #1b1b1e;
+  border: 1px solid #2c2c30;
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color: #d6d6da;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  width: 440px;
+}
+
+.clone-session-dialog-title {
+  color: #f0f0f2;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.clone-session-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clone-session-dialog-field-label {
+  color: #a9a9b0;
+  font-size: 11px;
+}
+
+.clone-session-dialog-field-error {
+  color: #e08080;
+  font-size: 11px;
+}
+
+.clone-session-dialog-input {
+  background-color: #111111;
+  border: 1px solid #3a3a41;
+  border-radius: 6px;
+  color: #f0f0f2;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.clone-session-dialog-input:focus {
+  border-color: #5a5a63;
+  outline: none;
+}
+
+.clone-session-dialog-form-error {
+  color: #e08080;
+  font-size: 12px;
+}
+
+.clone-session-dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.clone-session-dialog-cancel {
+  background: transparent;
+  border: 1px solid #3a3a41;
+  border-radius: 6px;
+  color: #a9a9b0;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.clone-session-dialog-cancel:hover {
+  color: #f0f0f2;
+}
+
+.clone-session-dialog-submit {
+  background-color: #38383f;
+  border: none;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 14px;
+}
+
+.clone-session-dialog-submit:hover:not(:disabled) {
+  background-color: #45454e;
+}
+
+.clone-session-dialog-submit:disabled {
+  color: #7c7c84;
+  cursor: default;
+}

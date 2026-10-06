@@ -1,0 +1,82 @@
+{
+	"name": "tmux-companion",
+	"version": "0.1.0",
+	"description": "Desktop companion for managing tmux sessions locally and over SSH",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/beecode-rs/tmux-companion.git"
+	},
+	"license": "MIT",
+	"author": "milos",
+	"type": "module",
+	"main": "./out/main/index.js",
+	"scripts": {
+		"build": "electron-vite build",
+		"dev": "electron-vite dev",
+		"dist:linux": "electron-vite build && electron-builder --linux --publish never",
+		"dist:mac": "electron-vite build && electron-builder --mac --publish never",
+		"init": "pnpm install",
+		"lint": "pnpm lint:prettier && pnpm lint:eslint && pnpm lint:json",
+		"lint-fix": "pnpm lint-fix:prettier && pnpm lint-fix:eslint && pnpm lint-fix:json",
+		"lint-fix:eslint": "eslint ./ --fix",
+		"lint-fix:json": "jsonsort -t *.json '!./node_modules' '!./**/.env*'",
+		"lint-fix:prettier": "prettier --write '**/*.{js,ts,tsx,html,css}'",
+		"lint:eslint": "eslint ./ --quiet --no-error-on-unmatched-pattern",
+		"lint:json": "pnpm lint-fix:json -c",
+		"lint:prettier": "prettier --check '**/*.{js,ts,tsx,html,css}'",
+		"pack:dir": "electron-vite build && electron-builder --dir --publish never -c.productName=\"Tmux Companion (dev)\"",
+		"postinstall": "node scripts/ensure-electron.js && electron-rebuild -f -w node-pty",
+		"start": "electron-vite preview",
+		"test:contract": "vitest --config=./vitest.config.contract.ts",
+		"typecheck": "pnpm typecheck:node && pnpm typecheck:web",
+		"typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+		"typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false"
+	},
+	"dependencies": {
+		"@xterm/addon-fit": "^0.10.0",
+		"@xterm/addon-web-links": "^0.11.0",
+		"@xterm/xterm": "^5.5.0",
+		"electron-store": "^10.0.0",
+		"express": "^5.1.0",
+		"node-pty": "^1.0.0",
+		"ws": "^8.18.0"
+	},
+	"devDependencies": {
+		"@beecode/msh-test-contractor": "^1.0.2",
+		"@electron/rebuild": "^4.2.0",
+		"@eslint/js": "^9.39.5",
+		"@types/express": "^5.0.0",
+		"@types/node": "^26.2.0",
+		"@types/react": "^19.2.18",
+		"@types/react-dom": "^19.2.4",
+		"@types/ws": "^8.18.0",
+		"@vitejs/plugin-react": "^5.2.0",
+		"electron": "^43.4.1",
+		"electron-builder": "^26.15.3",
+		"electron-vite": "^5.0.0",
+		"eslint": "^9.39.5",
+		"eslint-plugin-import": "^2.32.0",
+		"eslint-plugin-no-loops": "^0.4.0",
+		"eslint-plugin-no-only-tests": "^3.4.0",
+		"eslint-plugin-no-relative-import-paths": "^1.6.1",
+		"eslint-plugin-sort-keys-fix": "^1.1.2",
+		"globals": "^16.5.0",
+		"json-sort-cli": "^4.2.1",
+		"prettier": "^3.9.6",
+		"react": "^19.2.8",
+		"react-dom": "^19.2.8",
+		"typescript": "^6.0.3",
+		"typescript-eslint": "^8.67.0",
+		"vite": "^7.3.6",
+		"vitest": "^4.1.11"
+	},
+	"packageManager": "pnpm@10.18.1",
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"electron",
+			"esbuild",
+			"node-pty"
+		]
+	},
+	"desktopName": "tmux-companion.desktop"
+}

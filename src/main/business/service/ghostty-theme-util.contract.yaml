@@ -1,0 +1,90 @@
+subject: ghosttyThemeUtil
+module: ./ghostty-theme-util.js
+subjectType: function
+methods:
+  toCssColor:
+    terms:
+      # Six-digit hex is lowercased but otherwise passed through.
+      - params:
+          - value: '#1A2B3C'
+        result: '#1a2b3c'
+      # Eight-digit hex (alpha channel) is valid CSS as-is.
+      - params:
+          - value: '#c0c0c0ff'
+        result: '#c0c0c0ff'
+      # Three-digit shorthand hex is valid.
+      - params:
+          - value: '#fff'
+        result: '#fff'
+      # Named colors are not part of the minimal hex-only key set.
+      - params:
+          - value: red
+        result: null
+      # Five digits is neither shorthand nor long form.
+      - params:
+          - value: '#12345'
+        result: null
+      # Empty value is not a color.
+      - params:
+          - value: ''
+        result: null
+  parseConfig:
+    terms:
+      # A full Ghostty config maps every minimal key: font join, size number, all five colors renamed.
+      - params:
+          - content: |
+              font-family = JetBrains Mono
+              font-size = 14
+              foreground = #f2f2f2
+              background = #1a2b3c
+              cursor-color = #ffffff
+              selection-background = #444488
+              selection-foreground = #dddddd
+        result:
+          fontFamily: JetBrains Mono
+          fontSize: 14
+          theme:
+            background: '#1a2b3c'
+            cursor: '#ffffff'
+            foreground: '#f2f2f2'
+            selectionBackground: '#444488'
+            selectionForeground: '#dddddd'
+      # Malformed lines are skipped silently: comments, missing separator, unknown key, bad size, non-hex color.
+      - params:
+          - content: |
+              # a comment line
+              font-size = abc
+              font-family
+              unknown-key = value
+              background = not-a-color
+              foreground = #00ff00
+        result:
+          theme:
+            foreground: '#00ff00'
+      # A config with no usable keys parses to an empty theme payload.
+      - params:
+          - content: |
+              # nothing here
+              font-size =
+        result: {}
+      # Repeated font-family lines form a CSS fallback list, mirroring Ghostty semantics.
+      - params:
+          - content: |
+              font-family = JetBrains Mono
+              font-family = monospace
+        result:
+          fontFamily: 'JetBrains Mono, monospace'
+      # The separator works without surrounding spaces and indentation is tolerated.
+      - params:
+          - content: '  font-size=18  '
+        result:
+          fontSize: 18
+      # Alpha and shorthand hex colors pass through unchanged.
+      - params:
+          - content: |
+              background = #1a2b3cff
+              cursor-color = #fff
+        result:
+          theme:
+            background: '#1a2b3cff'
+            cursor: '#fff'

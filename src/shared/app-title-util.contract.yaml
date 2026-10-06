@@ -1,0 +1,14 @@
+subject: appTitleUtil
+module: ./app-title-util.js
+subjectType: function
+methods:
+  resolve:
+    terms:
+      # Dev-server runs append the suffix so the running app is distinguishable from a release build.
+      - params:
+          - isDev: true
+        result: Tmux Companion (dev)
+      # Packaged and preview runs keep the plain product name.
+      - params:
+          - isDev: false
+        result: Tmux Companion

@@ -1,0 +1,90 @@
+subject: instanceLabelUtil
+module: ./instance-label-util.js
+subjectType: function
+methods:
+  resolveLabelError:
+    terms:
+      # Empty label is rejected for every instance type.
+      - params:
+          - excludeId: i1
+            instances:
+              - id: i1
+                label: Local
+                type: local
+            label: ''
+            type: local
+        result: 'Label cannot be empty'
+      # Whitespace-only label is treated as empty.
+      - params:
+          - instances: []
+            label: '   '
+            type: ssh
+        result: 'Label cannot be empty'
+      # Two local instances may not share a label.
+      - params:
+          - instances:
+              - id: i1
+                label: Local
+                type: local
+            label: Local
+            type: local
+        result: "A local instance named 'Local' already exists"
+      # Labels are compared after trimming.
+      - params:
+          - instances:
+              - id: i1
+                label: dev
+                type: local
+            label: '  dev  '
+            type: local
+        result: "A local instance named 'dev' already exists"
+      # Comparison is case-sensitive.
+      - params:
+          - instances:
+              - id: i1
+                label: dev
+                type: local
+            label: Dev
+            type: local
+        result: null
+      # A local instance keeping its own label is fine.
+      - params:
+          - excludeId: i1
+            instances:
+              - id: i1
+                label: dev
+                type: local
+            label: dev
+            type: local
+        result: null
+      # A local label matching only an ssh instance's label is fine.
+      - params:
+          - instances:
+              - id: i2
+                label: dev
+                ssh:
+                  host: host.io
+                type: ssh
+            label: dev
+            type: local
+        result: null
+      # Two ssh instances may share a label.
+      - params:
+          - instances:
+              - id: i2
+                label: work
+                ssh:
+                  host: host.io
+                type: ssh
+            label: work
+            type: ssh
+        result: null
+      # An ssh label matching a local instance's label is fine.
+      - params:
+          - instances:
+              - id: i1
+                label: dev
+                type: local
+            label: dev
+            type: ssh
+        result: null

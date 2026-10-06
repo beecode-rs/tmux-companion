@@ -1,0 +1,25 @@
+subject: terminalModeUtil
+module: ./terminal-mode-util.js
+subjectType: function
+methods:
+  toFallbackMode:
+    terms:
+      # tmux attach exited with zero sessions left: fall back to the machine terminal.
+      - params:
+          - mode: tmux
+            sessions: []
+        result: machine
+      # Sessions remain (e.g. the client only detached): keep the current mode.
+      - params:
+          - mode: tmux
+            sessions:
+              - active: true
+                attached: false
+                name: s01
+                windows: 1
+        result: null
+      # Machine mode never falls back.
+      - params:
+          - mode: machine
+            sessions: []
+        result: null

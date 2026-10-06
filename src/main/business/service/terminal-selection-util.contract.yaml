@@ -1,0 +1,81 @@
+subject: terminalSelectionUtil
+module: ./terminal-selection-util.js
+subjectType: function
+methods:
+  toBufferRows:
+    terms:
+      # tmux list-buffers -F '#{buffer_created}\t#{buffer_name}' lists the most
+      # recent buffer first; each row parses into an epoch-seconds age and name.
+      - params:
+          - stdout: "1790872939\tbuffer40\n1790851171\tbuffer39\n"
+        result:
+          - createdEpochSeconds: 1790872939
+            name: buffer40
+          - createdEpochSeconds: 1790851171
+            name: buffer39
+      # A trailing newline from tmux output produces no phantom empty row.
+      - params:
+          - stdout: "1790872939\tbuffer40\n"
+        result:
+          - createdEpochSeconds: 1790872939
+            name: buffer40
+      # Malformed lines and non-numeric timestamps are skipped, not thrown on.
+      - params:
+          - stdout: "not-a-number\tbuffer9\n\n1790872939\tbuffer40\n"
+        result:
+          - createdEpochSeconds: 1790872939
+            name: buffer40
+      # Empty output yields no rows.
+      - params:
+          - stdout: ''
+        result: []
+  toNewestRecentBufferName:
+    terms:
+      # Only buffers created at or after the floor timestamp qualify; the newest
+      # of those wins.
+      - params:
+          - minCreatedEpochSeconds: 1790870000
+            rows:
+              - createdEpochSeconds: 1790872939
+                name: buffer40
+              - createdEpochSeconds: 1790851171
+                name: buffer39
+        result: buffer40
+      # Buffers older than the floor are ignored even when they are the newest
+      # listed.
+      - params:
+          - minCreatedEpochSeconds: 1790880000
+            rows:
+              - createdEpochSeconds: 1790872939
+                name: buffer40
+        result: null
+      # No rows at all means nothing was copied recently.
+      - params:
+          - minCreatedEpochSeconds: 1790870000
+            rows: []
+        result: null
+      # Equal timestamps keep the first row, matching tmux's newest-first
+      # listing order.
+      - params:
+          - minCreatedEpochSeconds: 1790870000
+            rows:
+              - createdEpochSeconds: 1790872939
+                name: buffer41
+              - createdEpochSeconds: 1790872939
+                name: buffer40
+        result: buffer41
+  toClipboardText:
+    terms:
+      # tmux selection buffers end with the trailing newline of the last
+      # selected line; the clipboard gets it stripped.
+      - params:
+          - raw: "first line\nsecond line\n"
+        result: "first line\nsecond line"
+      # A selection without a trailing newline passes through unchanged.
+      - params:
+          - raw: single word
+        result: single word
+      # Only one trailing newline is stripped; interior blank lines survive.
+      - params:
+          - raw: "first\n\n"
+        result: "first\n"

@@ -1,0 +1,124 @@
+subject: terminalLaunchUtil
+module: ./terminal-launch-util.js
+subjectType: function
+methods:
+  toAttachArgs:
+    terms:
+      # Local instance attaches directly via tmux.
+      - params:
+          - instance:
+              id: i1
+              label: Local
+              type: local
+            sessionName: s01-a3f9c2
+        result:
+          - tmux
+          - attach
+          - -t
+          - =s01-a3f9c2
+      # SSH instance reuses the executor connection options (interactive: no
+      # BatchMode so password prompts work in the external terminal): shared
+      # options, port, identity, then -t target, -- and the remote command.
+      - params:
+          - instance:
+              id: i2
+              label: Box
+              ssh:
+                host: host.io
+                identityFile: /Users/milos/.ssh/id_ed25519
+                port: 2222
+                user: milos
+              type: ssh
+            sessionName: work-b7e1d0
+        result:
+          - ssh
+          - -o
+          - ControlMaster=auto
+          - -o
+          - ControlPath=~/.ssh/cm-%C
+          - -o
+          - ControlPersist=10m
+          - -o
+          - StrictHostKeyChecking=accept-new
+          - -o
+          - ConnectTimeout=10
+          - -p
+          - '2222'
+          - -i
+          - /Users/milos/.ssh/id_ed25519
+          - -t
+          - milos@host.io
+          - --
+          - env
+          - PATH=/opt/homebrew/bin:/opt/local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+          - tmux
+          - attach
+          - -t
+          - =work-b7e1d0
+      # SSH instance without user/port/identity: options only, then target, -- and command.
+      - params:
+          - instance:
+              id: i3
+              label: Alias
+              ssh:
+                host: my-alias
+              type: ssh
+            sessionName: s02-c1d2e3
+        result:
+          - ssh
+          - -o
+          - ControlMaster=auto
+          - -o
+          - ControlPath=~/.ssh/cm-%C
+          - -o
+          - ControlPersist=10m
+          - -o
+          - StrictHostKeyChecking=accept-new
+          - -o
+          - ConnectTimeout=10
+          - -t
+          - my-alias
+          - --
+          - env
+          - PATH=/opt/homebrew/bin:/opt/local/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+          - tmux
+          - attach
+          - -t
+          - =s02-c1d2e3
+  toRenderedTemplate:
+    terms:
+      # Shell template: safe words (validated session names) substitute unquoted.
+      - params:
+          - args: [tmux, attach, -t, =s01-a3f9c2]
+            template: 'open -na Ghostty --args -e {cmd}'
+        result: 'open -na Ghostty --args -e tmux attach -t =s01-a3f9c2'
+      # Shell template: unsafe word (~/ and /) gets relay-style single quoting.
+      - params:
+          - args: [ssh, -o, ControlPath=~/.ssh/cm-%C, -t, user@host.io, tmux, attach, -t, =s01-a3f9c2]
+            template: 'ghostty -e {cmd}'
+        result: "ghostty -e ssh -o 'ControlPath=~/.ssh/cm-%C' -t user@host.io tmux attach -t =s01-a3f9c2"
+      # Osascript template: each word double-quoted for the do-script shell, then AppleScript-escaped.
+      - params:
+          - args: [tmux, attach, -t, =s01-a3f9c2]
+            template: 'osascript -e ''tell application "Terminal" to do script "{cmd}"'' -e ''tell application "Terminal" to activate'''
+        result: 'osascript -e ''tell application "Terminal" to do script "\"tmux\" \"attach\" \"-t\" \"=s01-a3f9c2\""'' -e ''tell application "Terminal" to activate'''
+      # Osascript template with double quotes inside a cmd word: escaped for both the shell and the AppleScript string layer.
+      - params:
+          - args: [printf, 'hello "world"']
+            template: 'osascript -e ''tell application "Terminal" to do script "{cmd}"'''
+        result: 'osascript -e ''tell application "Terminal" to do script "\"printf\" \"hello \\\"world\\\"\""'''
+      # Osascript template: dollar and backtick are neutralized so the do-script shell cannot expand them.
+      - params:
+          - args: [echo, '$HOME', 'a`b`c']
+            template: 'osascript -e ''tell application "Terminal" to do script "{cmd}"'''
+        result: 'osascript -e ''tell application "Terminal" to do script "\"echo\" \"\\$HOME\" \"a\\`b\\`c\""'''
+      # Template that already quotes {cmd}: safe words pass through untouched inside the quotes.
+      - params:
+          - args: [tmux, attach, -t, =s01-a3f9c2]
+            template: 'ptyxis -x "{cmd}"'
+        result: 'ptyxis -x "tmux attach -t =s01-a3f9c2"'
+      # Shell template with -- separator: safe words substitute verbatim.
+      - params:
+          - args: [ssh, -t, user@host.io, tmux, attach, -t, =s01-a3f9c2]
+            template: 'gnome-terminal -- {cmd}'
+        result: 'gnome-terminal -- ssh -t user@host.io tmux attach -t =s01-a3f9c2'

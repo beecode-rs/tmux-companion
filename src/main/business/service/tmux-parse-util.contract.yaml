@@ -1,0 +1,449 @@
+subject: tmuxParseUtil
+module: ./tmux-parse-util.js
+subjectType: function
+methods:
+  parseSessionOutput:
+    terms:
+      # Tab lines parse in stdout order; names may contain dashes.
+      - params:
+          - stderr: ''
+            stdout: "s01-a3f9c2\t2\t1\t1700000002\nmy-work-a3f9c2\t5\t0\t1700000000\n"
+        result:
+          - attachedCount: 1
+            lastAttached: 1700000002
+            name: s01-a3f9c2
+            windows: 2
+          - attachedCount: 0
+            lastAttached: 1700000000
+            name: my-work-a3f9c2
+            windows: 5
+      # No tmux server yet: empty list, not an error.
+      - params:
+          - stderr: no server running on /tmp/tmux-501/default
+            stdout: ''
+        result: []
+      # 'no sessions' stderr is also an empty list.
+      - params:
+          - stderr: no sessions
+            stdout: ''
+        result: []
+      # Empty output with no stderr: empty list.
+      - params:
+          - stderr: ''
+            stdout: ''
+        result: []
+      # Lines with the wrong field count are skipped silently.
+      - params:
+          - stderr: ''
+            stdout: "bad-line\t1\t2\ns01-a3f9c2\t1\t0\t7\n"
+        result:
+          - attachedCount: 0
+            lastAttached: 7
+            name: s01-a3f9c2
+            windows: 1
+      # Never-attached sessions emit an EMPTY session_last_attached field
+      # (verified against real tmux); it parses as 0 so the row survives.
+      - params:
+          - stderr: ''
+            stdout: "new-sess-a3f9c2\t1\t0\t\n"
+        result:
+          - attachedCount: 0
+            lastAttached: 0
+            name: new-sess-a3f9c2
+            windows: 1
+  parseClientOutput:
+    terms:
+      # Client rows carry tty, session name and activity timestamp.
+      - params:
+          - stderr: ''
+            stdout: "/dev/ttys001\ts01-a3f9c2\t1700000099\n/dev/ttys002\twork\t1700000050\n"
+        result:
+          - activity: 1700000099
+            session: s01-a3f9c2
+            tty: /dev/ttys001
+          - activity: 1700000050
+            session: work
+            tty: /dev/ttys002
+      # No attached clients: empty list, not an error.
+      - params:
+          - stderr: no clients
+            stdout: ''
+        result: []
+      # Control-mode clients carry an empty tty and can never be switch-client
+      # targets; rows without a tty are skipped.
+      - params:
+          - stderr: ''
+            stdout: "/dev/ttys001\ts01-a3f9c2\t1700000099\n\ts01-a3f9c2\t1700000100\n"
+        result:
+          - activity: 1700000099
+            session: s01-a3f9c2
+            tty: /dev/ttys001
+  parsePaneScrollState:
+    terms:
+      # display-message -p of alternate_on, pane_in_mode, scroll_position,
+      # history_size for an alternate-screen pane; scroll_position is empty
+      # outside copy mode.
+      - params:
+          - stdout: "1\t0\t\t0\n"
+        result:
+          historySize: 0
+          isAlternateOn: true
+          isInCopyMode: false
+          scrollPosition: 0
+      # A pane sitting in copy mode scrolled 12 lines into a 200-line history.
+      - params:
+          - stdout: "0\t1\t12\t200\n"
+        result:
+          historySize: 200
+          isAlternateOn: false
+          isInCopyMode: true
+          scrollPosition: 12
+      # A plain shell prompt with accumulated history: all zeroed.
+      - params:
+          - stdout: "0\t0\t0\t2000\n"
+        result:
+          historySize: 2000
+          isAlternateOn: false
+          isInCopyMode: false
+          scrollPosition: 0
+      # Empty output: no pane state.
+      - params:
+          - stdout: ''
+        result: null
+      # Wrong field count: no pane state.
+      - params:
+          - stdout: "bad\tline\n"
+        result: null
+      # Legacy three-field format without history_size: rejected.
+      - params:
+          - stdout: "0\t1\t12\n"
+        result: null
+  toSessionInfos:
+    terms:
+      # Every row on the machine is listed, sorted by name asc; the most
+      # recent row is the active one.
+      - params:
+          - rows:
+              - attachedCount: 1
+                lastAttached: 10
+                name: s01-a3f9c2
+                windows: 2
+              - attachedCount: 0
+                lastAttached: 30
+                name: s02-a3f9c2
+                windows: 1
+              - attachedCount: 1
+                lastAttached: 25
+                name: work
+                windows: 4
+              - attachedCount: 0
+                lastAttached: 5
+                name: session-01-a3f9c2
+                windows: 1
+        result:
+          - active: false
+            attached: true
+            name: s01-a3f9c2
+            windows: 2
+          - active: true
+            attached: false
+            name: s02-a3f9c2
+            windows: 1
+          - active: false
+            attached: false
+            name: session-01-a3f9c2
+            windows: 1
+          - active: false
+            attached: true
+            name: work
+            windows: 4
+      # Never-attached rows tie at 0: name-ascending order, no active row.
+      - params:
+          - rows:
+              - attachedCount: 0
+                lastAttached: 0
+                name: b-a3f9c2
+                windows: 1
+              - attachedCount: 0
+                lastAttached: 0
+                name: a-a3f9c2
+                windows: 1
+        result:
+          - active: false
+            attached: false
+            name: a-a3f9c2
+            windows: 1
+          - active: false
+            attached: false
+            name: b-a3f9c2
+            windows: 1
+      # The embedded client's CURRENT session (from list-clients) wins over the
+      # last_attached heuristic: s02 is most recent but the client sits on s01,
+      # so only s01 is active. Covers the same-second last_attached tie where the
+      # heuristic would highlight the wrong row after a switch.
+      - params:
+          - activeSessionName: s01-a3f9c2
+            rows:
+              - attachedCount: 1
+                lastAttached: 10
+                name: s01-a3f9c2
+                windows: 2
+              - attachedCount: 0
+                lastAttached: 30
+                name: s02-a3f9c2
+                windows: 1
+              - attachedCount: 1
+                lastAttached: 25
+                name: work
+                windows: 4
+        result:
+          - active: true
+            attached: true
+            name: s01-a3f9c2
+            windows: 2
+          - active: false
+            attached: false
+            name: s02-a3f9c2
+            windows: 1
+          - active: false
+            attached: true
+            name: work
+            windows: 4
+      # The client's current session is honored even when it is a foreign
+      # session: the client sits on 'work', so 'work' is active.
+      - params:
+          - activeSessionName: work
+            rows:
+              - attachedCount: 1
+                lastAttached: 10
+                name: s01-a3f9c2
+                windows: 2
+              - attachedCount: 0
+                lastAttached: 30
+                name: s02-a3f9c2
+                windows: 1
+              - attachedCount: 1
+                lastAttached: 25
+                name: work
+                windows: 4
+        result:
+          - active: false
+            attached: true
+            name: s01-a3f9c2
+            windows: 2
+          - active: false
+            attached: false
+            name: s02-a3f9c2
+            windows: 1
+          - active: true
+            attached: true
+            name: work
+            windows: 4
+  toClientSessionName:
+    terms:
+      # The session of the client identified by tty, among rows for other clients.
+      - params:
+          - clientRows:
+              - activity: 100
+                session: s01-a3f9c2
+                tty: /dev/ttys001
+              - activity: 300
+                session: s02-a3f9c2
+                tty: /dev/ttys002
+            clientTty: /dev/ttys002
+        result: s02-a3f9c2
+      # Unknown tty: null, never another client's session.
+      - params:
+          - clientRows:
+              - activity: 100
+                session: s01-a3f9c2
+                tty: /dev/ttys001
+            clientTty: /dev/ttys009
+        result: null
+      # Empty client list: null.
+      - params:
+          - clientRows: []
+            clientTty: /dev/ttys001
+        result: null
+  toClientTty:
+    terms:
+      # Among clients attached to the start session, the highest activity wins;
+      # a more recently used client on a DIFFERENT session must never be picked
+      # as this instance's client.
+      - params:
+          - clientRows:
+              - activity: 100
+                session: s01-a3f9c2
+                tty: /dev/ttys001
+              - activity: 300
+                session: s02-a3f9c2
+                tty: /dev/ttys002
+              - activity: 200
+                session: s01-a3f9c2
+                tty: /dev/ttys003
+            sessionName: s01-a3f9c2
+        result: /dev/ttys003
+      # No client on the start session: null, not a fallback to another client.
+      - params:
+          - clientRows:
+              - activity: 300
+                session: s02-a3f9c2
+                tty: /dev/ttys002
+            sessionName: s01-a3f9c2
+        result: null
+      # Empty client list: null.
+      - params:
+          - clientRows: []
+            sessionName: s01-a3f9c2
+        result: null
+  toKillPlan:
+    terms:
+      # Another session exists: switch to the most recent other session, foreign
+      # 'hot' included — sessions are no longer grouped by ownership.
+      - params:
+          - rows:
+              - attachedCount: 1
+                lastAttached: 10
+                name: s01-a3f9c2
+                windows: 2
+              - attachedCount: 0
+                lastAttached: 30
+                name: s02-a3f9c2
+                windows: 1
+              - attachedCount: 0
+                lastAttached: 20
+                name: s03-a3f9c2
+                windows: 1
+              - attachedCount: 1
+                lastAttached: 99
+                name: hot
+                windows: 1
+            victimName: s01-a3f9c2
+        result:
+          name: hot
+          type: switch
+      # Victim is the only session (non-sNN name): no replacement is created;
+      # killing it lets the tmux server terminate.
+      - params:
+          - rows:
+              - attachedCount: 1
+                lastAttached: 40
+                name: pair-a3f9c2
+                windows: 1
+            victimName: pair-a3f9c2
+        result:
+          type: terminate
+      # Victim is the only session and IS s01: still no replacement.
+      - params:
+          - rows:
+              - attachedCount: 1
+                lastAttached: 40
+                name: s01
+                windows: 1
+            victimName: s01
+        result:
+          type: terminate
+      # A legacy suffixed victim is treated like any other last session.
+      - params:
+          - rows:
+              - attachedCount: 1
+                lastAttached: 40
+                name: s01-a3f9c2
+                windows: 1
+            victimName: s01-a3f9c2
+        result:
+          type: terminate
+      # Another session always wins over creating, even when the victim is the
+      # most recently used one.
+      - params:
+          - rows:
+              - attachedCount: 0
+                lastAttached: 10
+                name: s01-a3f9c2
+                windows: 1
+              - attachedCount: 1
+                lastAttached: 30
+                name: s02-a3f9c2
+                windows: 2
+            victimName: s02-a3f9c2
+        result:
+          name: s01-a3f9c2
+          type: switch
+      # Victim is a foreign session the client sits on: switch to the most
+      # recent remaining session instead of creating one.
+      - params:
+          - rows:
+              - attachedCount: 0
+                lastAttached: 10
+                name: s01-a3f9c2
+                windows: 1
+              - attachedCount: 1
+                lastAttached: 99
+                name: manual-test
+                windows: 1
+            victimName: manual-test
+        result:
+          name: s01-a3f9c2
+          type: switch
+  isAbsentClientOutput:
+    terms:
+      # Both no-client sentinels count as absent output, not an error.
+      - params:
+          - stderr: no clients
+        result: true
+      - params:
+          - stderr: no server running on /tmp/tmux-501/default
+        result: true
+      # An ssh failure on the way to the remote tmux is a real error.
+      - params:
+          - stderr: 'user@host: Permission denied (publickey,password).'
+        result: false
+      - params:
+          - stderr: 'ssh: connect to host host port 22: Connection refused'
+        result: false
+      - params:
+          - stderr: ''
+        result: false
+  isAbsentSessionOutput:
+    terms:
+      # Both no-session sentinels count as absent output, not an error.
+      - params:
+          - stderr: no server running on /tmp/tmux-501/default
+        result: true
+      - params:
+          - stderr: no sessions
+        result: true
+      # An ssh failure on the way to the remote tmux is a real error.
+      - params:
+          - stderr: 'host: Host key verification failed.'
+        result: false
+      - params:
+          - stderr: 'ssh: connect to host host port 2222: Operation timed out'
+        result: false
+      - params:
+          - stderr: ''
+        result: false
+  isControlRefreshNotification:
+    terms:
+      # %sessions-changed has no arguments and triggers a refresh.
+      - params:
+          - line: '%sessions-changed'
+        result: true
+      # %session-renamed carries the new session name as an argument.
+      - params:
+          - line: '%session-renamed new-name'
+        result: true
+      # Other control notifications do not imply a session-list refresh.
+      - params:
+          - line: '%session-changed $3 s01-a3f9c2'
+        result: false
+      - params:
+          - line: '%output %1 raw terminal output'
+        result: false
+      # Plain non-notification output lines are ignored.
+      - params:
+          - line: plain shell output
+        result: false
+      - params:
+          - line: ''
+        result: false

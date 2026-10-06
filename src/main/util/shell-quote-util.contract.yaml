@@ -1,0 +1,45 @@
+subject: shellQuoteUtil
+module: ./shell-quote-util.js
+subjectType: function
+methods:
+  toShellWord:
+    terms:
+      # Safe charset (letters, digits, dash) passes through unchanged.
+      - params: [s01-a3f9c2]
+        result: s01-a3f9c2
+      # Every safe special (@ % + = , . : _ -) passes through unchanged.
+      - params: ['a+=b%c@d,e:f.g-h_i']
+        result: a+=b%c@d,e:f.g-h_i
+      # host-style words with @ and dots pass through.
+      - params: [user@host.io]
+        result: user@host.io
+      # Space forces single-quoting.
+      - params: ['my work']
+        result: "'my work'"
+      # Dollar sign forces single-quoting (no expansion inside single quotes).
+      - params: [$HOME]
+        result: "'$HOME'"
+      # Backtick forces single-quoting (no command substitution inside single quotes).
+      - params: ['a`b']
+        result: "'a`b'"
+      # Backslash forces single-quoting (no escaping inside single quotes).
+      - params: ["a\\b"]
+        result: "'a\\b'"
+      # Double quote inside the word is preserved inside single quotes.
+      - params: ['a"b']
+        result: "'a\"b'"
+      # Embedded single quote is escaped as '\'' per relay's _toShellWord.
+      - params: ["it's"]
+        result: "'it'\\''s'"
+      # Multiple embedded single quotes are each escaped.
+      - params: ["a'b'c"]
+        result: "'a'\\''b'\\''c'"
+      # Empty string is not a safe word and becomes a quoted empty string.
+      - params: ['']
+        result: "''"
+      # Slash is not in the safe charset, so paths are quoted.
+      - params: ['~/work dir/sub']
+        result: "'~/work dir/sub'"
+      # Hash is not in the safe charset and is quoted.
+      - params: ['a#b']
+        result: "'a#b'"

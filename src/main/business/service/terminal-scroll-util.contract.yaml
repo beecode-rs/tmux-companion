@@ -1,0 +1,107 @@
+subject: terminalScrollUtil
+module: ./terminal-scroll-util.js
+subjectType: function
+methods:
+  toScrollPlan:
+    terms:
+      # Alternate-screen pane (vim, less): the wheel must reach the pane as
+      # arrow keys, application cursor keys form, one per scrolled line.
+      - params:
+          - cursorKeys: application
+            direction: up
+            isAlternateOn: true
+            isInCopyMode: false
+            lines: 3
+            scrollPosition: 0
+        result:
+          data: "\x1bOA\x1bOA\x1bOA"
+          type: write-arrow-keys
+      # Alternate-screen pane scrolling down with normal cursor keys form.
+      - params:
+          - cursorKeys: normal
+            direction: down
+            isAlternateOn: true
+            isInCopyMode: false
+            lines: 2
+            scrollPosition: 0
+        result:
+          data: "\x1b[B\x1b[B"
+          type: write-arrow-keys
+      # Plain shell prompt, wheel up, not in copy mode yet: enter copy mode
+      # first, then scroll the pane history.
+      - params:
+          - cursorKeys: normal
+            direction: up
+            isAlternateOn: false
+            isInCopyMode: false
+            lines: 3
+            scrollPosition: 0
+        result:
+          direction: up
+          lines: 3
+          type: scroll-after-entering-copy-mode
+      # Already in copy mode, wheel up: keep scrolling without re-entering.
+      - params:
+          - cursorKeys: normal
+            direction: up
+            isAlternateOn: false
+            isInCopyMode: true
+            lines: 5
+            scrollPosition: 12
+        result:
+          direction: up
+          lines: 5
+          type: scroll-in-copy-mode
+      # Wheel down at a live prompt with no copy mode: nothing to scroll.
+      - params:
+          - cursorKeys: normal
+            direction: down
+            isAlternateOn: false
+            isInCopyMode: false
+            lines: 3
+            scrollPosition: 0
+        result:
+          type: ignore
+      # Wheel down already at the bottom of copy mode: leave copy mode, like
+      # tmux native mouse wheel behavior.
+      - params:
+          - cursorKeys: normal
+            direction: down
+            isAlternateOn: false
+            isInCopyMode: true
+            lines: 3
+            scrollPosition: 0
+        result:
+          type: exit-copy-mode
+      # Wheel down mid-history: scroll down, clamped to the remaining position.
+      - params:
+          - cursorKeys: normal
+            direction: down
+            isAlternateOn: false
+            isInCopyMode: true
+            lines: 9
+            scrollPosition: 5
+        result:
+          direction: down
+          lines: 5
+          type: scroll-in-copy-mode
+  toArrowKeys:
+    terms:
+      # Application cursor keys up arrow uses the SS3 escape form.
+      - params:
+          - cursorKeys: application
+            direction: up
+            lines: 1
+        result: "\x1bOA"
+      # Normal cursor keys down arrow uses the CSI escape form, repeated per line.
+      - params:
+          - cursorKeys: normal
+            direction: down
+            lines: 2
+        result: "\x1b[B\x1b[B"
+      # Zero lines produce an empty sequence.
+      - params:
+          - cursorKeys: normal
+            direction: up
+            lines: 0
+        result: ''
