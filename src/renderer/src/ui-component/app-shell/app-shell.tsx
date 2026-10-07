@@ -188,6 +188,19 @@ export const AppShell = (): ReactElement => {
     )
   }
 
+  const renderAddInstanceButton = (): ReactElement => {
+    return (
+      <button
+        className="app-shell-add-instance-button"
+        onClick={handleOpenCreateDialog}
+        title="Add new instance"
+        type="button"
+      >
+        <Icon name="plus" />
+      </button>
+    )
+  }
+
   const renderDialog = (): ReactElement | null => {
     if (!isDialogOpen) {
       return null
@@ -234,13 +247,14 @@ export const AppShell = (): ReactElement => {
       <header className="app-shell-top-bar">
         {renderSidebarToggle()}
         {renderViewNav({ viewIds: PRIMARY_VIEW_IDS })}
+        {renderAddInstanceButton()}
         <TopBar instanceId={selectedInstanceId} sessionName={activeSessionName} />
         <div className="app-shell-top-bar-separator" />
         {renderViewNav({ viewIds: MENU_VIEW_IDS })}
       </header>
       <div className="app-shell-body">
         <aside className={resolveSidebarClassName({ isVisible: isSidebarVisible })}>
-          <Sidebar onAddRemoteInstance={handleOpenCreateDialog} onEditInstance={handleOpenEditDialog} />
+          <Sidebar onEditInstance={handleOpenEditDialog} />
         </aside>
         <main className="app-shell-content">
           <div className={resolveTerminalPaneClassName({ isActive: isTerminalView })}>

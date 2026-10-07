@@ -89,7 +89,6 @@ body {
 }
 
 .sidebar-instance-button:hover,
-.sidebar-instance-header:has(.sidebar-instance-add:hover) .sidebar-instance-button,
 .sidebar-instance-header:has(.sidebar-instance-kebab:hover) .sidebar-instance-button {
   background-color: #242429;
 }
@@ -138,28 +137,6 @@ body {
 .sidebar-instance-kebab:hover {
   background-color: #2e2e33;
   color: #d6d6da;
-}
-
-.sidebar-instance-add {
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: #77777e;
-  cursor: pointer;
-  flex: none;
-  line-height: 1;
-  padding: 3px 5px;
-}
-
-.sidebar-instance-add svg {
-  display: block;
-  height: 14px;
-  width: 14px;
-}
-
-.sidebar-instance-add:hover {
-  background-color: #2e2e33;
-  color: #5fbf87;
 }
 
 .sidebar-instance-body {
@@ -410,6 +387,28 @@ body {
 }
 
 .app-shell-sidebar-toggle svg {
+  display: block;
+  height: 18px;
+  width: 18px;
+}
+
+.app-shell-add-instance-button {
+  align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #a9a9b0;
+  cursor: pointer;
+  display: flex;
+  padding: 6px;
+}
+
+.app-shell-add-instance-button:hover {
+  background-color: #2e2e33;
+  color: #5fbf87;
+}
+
+.app-shell-add-instance-button svg {
   display: block;
   height: 18px;
   width: 18px;

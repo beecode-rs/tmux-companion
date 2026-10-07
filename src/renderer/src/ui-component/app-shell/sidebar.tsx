@@ -19,7 +19,6 @@ import { sessionNamingUtil } from '#src/shared/session-naming-util'
 import { type TerminalMode } from '#src/shared/terminal-mode-model'
 
 interface ISidebarProps {
-  onAddRemoteInstance: () => void
   onEditInstance: (instance: IInstance) => void
 }
 
@@ -311,7 +310,7 @@ const renderInlineError = (params: { message: string | null }): ReactElement | n
 }
 
 export const Sidebar = (props: ISidebarProps): ReactElement => {
-  const { onAddRemoteInstance, onEditInstance } = props
+  const { onEditInstance } = props
   const {
     connectedInstanceIds,
     connectInstance,
@@ -725,23 +724,6 @@ export const Sidebar = (props: ISidebarProps): ReactElement => {
     )
   }
 
-  const renderAddRemoteInstanceButton = (params: { instance: IInstance }): ReactElement | null => {
-    if (params.instance.type !== 'local') {
-      return null
-    }
-
-    return (
-      <button
-        className="sidebar-instance-add"
-        onClick={onAddRemoteInstance}
-        title="Add a remote SSH instance"
-        type="button"
-      >
-        <Icon name="plus" />
-      </button>
-    )
-  }
-
   const renderInstanceGroup = (params: { instance: IInstance }): ReactElement => {
     const isCollapsed = isCollapsedByInstanceId[params.instance.id] === true
     const isConnected = connectedInstanceIds.includes(params.instance.id)
@@ -784,7 +766,6 @@ export const Sidebar = (props: ISidebarProps): ReactElement => {
             </span>
             <span className="sidebar-instance-label">{params.instance.label}</span>
           </button>
-          {renderAddRemoteInstanceButton({ instance: params.instance })}
           <button
             className="sidebar-instance-kebab"
             onClick={(event) => {
