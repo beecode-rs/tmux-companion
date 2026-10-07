@@ -1,6 +1,6 @@
 {
 	"name": "tmux-companion",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Desktop companion for managing tmux sessions locally and over SSH",
 	"repository": {
 		"type": "git",
