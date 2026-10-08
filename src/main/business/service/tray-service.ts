@@ -180,7 +180,13 @@ export class TrayService {
 
   protected async _handleCreateSession(params: { instance: IInstance }): Promise<void> {
     try {
-      await this._tmuxService.createSession({ instance: params.instance })
+      const name = await this._tmuxService.createSession({ instance: params.instance })
+      const isSwitched = await this._toSwitchedResult({ attempt: 1, instance: params.instance, name })
+
+      if (isSwitched) {
+        this._settingsRepo.setLastSession({ fullSessionName: name, instanceId: params.instance.id })
+        this._onSessionSwitched({ instanceId: params.instance.id })
+      }
     } catch {
       return
     } finally {

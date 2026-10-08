@@ -583,6 +583,7 @@ export const Sidebar = (props: ISidebarProps): ReactElement => {
     void runAction({
       action: async () => {
         await new ApiClient().createSession(request)
+        selectInstance(request.instanceId)
       },
       instanceId: request.instanceId,
     })

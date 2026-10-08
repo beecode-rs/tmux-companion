@@ -198,6 +198,8 @@ export class ApiServer {
 
     const name = await this._tmuxService.createSession({ instance, name: body.name })
 
+    await this._switchSessionIfAttached({ instance, name })
+    this._settingsRepo.setLastSession({ fullSessionName: name, instanceId: instance.id })
     params.res.status(201).json({ name })
   }
 
@@ -305,12 +307,7 @@ export class ApiServer {
 
     this._assertValidSessionName({ name })
 
-    const clientTty = await this._ptyService.getOrResolveClientTty({ instanceId: instance.id })
-
-    if (clientTty !== null) {
-      await this._ptyService.switchAttachedClient({ instance, name })
-    }
-
+    await this._switchSessionIfAttached({ instance, name })
     this._settingsRepo.setLastSession({ fullSessionName: name, instanceId: instance.id })
     params.res.json({ lastSession: name })
   }
@@ -478,6 +475,16 @@ export class ApiServer {
     const message = this._toMessage({ error })
 
     params.res.status(this._toStatusCode({ message })).json({ message })
+  }
+
+  protected async _switchSessionIfAttached(params: { instance: IInstance; name: string }): Promise<void> {
+    const clientTty = await this._ptyService.getOrResolveClientTty({ instanceId: params.instance.id })
+
+    if (clientTty === null) {
+      return
+    }
+
+    await this._ptyService.switchAttachedClient({ instance: params.instance, name: params.name })
   }
 
   protected _toAuthHandler(): RequestHandler {
