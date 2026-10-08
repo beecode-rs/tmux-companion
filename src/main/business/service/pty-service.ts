@@ -77,22 +77,22 @@ export class PtyService {
     this._tmuxService = params.tmuxService
   }
 
-  async copySelection(params: { instanceId: string; mode: TerminalMode }): Promise<void> {
+  async copySelection(params: { instanceId: string; mode: TerminalMode }): Promise<string | null> {
     if (params.mode !== 'tmux') {
-      return
+      return null
     }
 
     try {
       const entry = this._ptys.get(this._toTmuxKey({ instanceId: params.instanceId }))
 
       if (entry?.exitReason !== null) {
-        return
+        return null
       }
 
       const clientTty = await this.getOrResolveClientTty({ instanceId: params.instanceId })
 
       if (clientTty === null) {
-        return
+        return null
       }
 
       const instance = this._toInstance({ instanceId: params.instanceId })
@@ -102,11 +102,17 @@ export class PtyService {
 
       const rawBufferText = await this._waitForRecentBufferText({ attempt: 1, instance, minCreatedEpochSeconds })
 
-      if (rawBufferText !== null) {
-        clipboard.writeText(terminalSelectionUtil.toClipboardText({ raw: rawBufferText }))
+      if (rawBufferText === null) {
+        return null
       }
+
+      const clipboardText = terminalSelectionUtil.toClipboardText({ raw: rawBufferText })
+
+      clipboard.writeText(clipboardText)
+
+      return clipboardText
     } catch {
-      return
+      return null
     }
   }
 

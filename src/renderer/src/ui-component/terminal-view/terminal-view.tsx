@@ -6,6 +6,7 @@ import { type ReactElement, useCallback, useEffect, useRef, useState } from 'rea
 
 import { ApiClient } from '#src/renderer/src/business/service/api-client'
 import { type InstanceTerminalRequest, useInstances } from '#src/renderer/src/business/service/instances-store'
+import { terminalA11ySelectionUtil } from '#src/renderer/src/ui-component/terminal-view/terminal-a11y-selection-util'
 import { TerminalScrollbar } from '#src/renderer/src/ui-component/terminal-view/terminal-scrollbar'
 import { type IGetThemeResponse } from '#src/shared/api-model'
 import { type TerminalMode } from '#src/shared/terminal-mode-model'
@@ -137,6 +138,26 @@ const applySessionTheme = (params: { session: ITerminalSession; theme: IGetTheme
   scheduleTerminalFit({ session: params.session })
 }
 
+const applyA11ySelectionMirror = (params: { session: ITerminalSession; text: string }): void => {
+  const textarea = params.session.terminal.textarea
+
+  if (textarea === undefined) {
+    return
+  }
+
+  terminalA11ySelectionUtil.applySelectionMirror({ text: params.text, textarea })
+}
+
+const clearA11ySelectionMirror = (params: { session: ITerminalSession }): void => {
+  const textarea = params.session.terminal.textarea
+
+  if (textarea === undefined) {
+    return
+  }
+
+  terminalA11ySelectionUtil.clearSelectionMirror({ textarea })
+}
+
 const applyScrollStateFrame = (params: {
   data: ArrayBuffer
   onScrollStateChange: ITerminalScrollStateChangeHandler
@@ -173,6 +194,7 @@ const connectTerminalSession = (params: {
     params.onConnectedChange({ instanceId: params.session.instanceId, isConnected: false })
     params.onStateChange()
     resetTerminalScrollState({ onScrollStateChange: params.onScrollStateChange, session: params.session })
+    clearA11ySelectionMirror({ session: params.session })
 
     if (event.code === PTY_EXIT_CLOSE_CODE && params.session.mode === 'tmux') {
       void params.onTmuxExit({ instanceId: params.session.instanceId })
@@ -182,6 +204,16 @@ const connectTerminalSession = (params: {
   webSocket.onmessage = (event: MessageEvent<string | ArrayBuffer>) => {
     if (typeof event.data === 'string') {
       params.session.terminal.write(event.data)
+
+      return
+    }
+
+    const selectionTextFrame = terminalA11ySelectionUtil.toParsedSelectionTextFrame({
+      text: new TextDecoder().decode(event.data),
+    })
+
+    if (selectionTextFrame !== null) {
+      applyA11ySelectionMirror({ session: params.session, text: selectionTextFrame.text })
 
       return
     }
@@ -221,6 +253,7 @@ const disconnectTerminalSession = (params: {
   webSocket.onopen = null
   webSocket.close()
   resetTerminalScrollState({ onScrollStateChange: params.onScrollStateChange, session: params.session })
+  clearA11ySelectionMirror({ session: params.session })
 }
 
 const flushTerminalScroll = (params: { session: ITerminalSession }): void => {
@@ -647,6 +680,15 @@ const toTerminalSession = (params: {
   terminal.onData((data: string) => {
     sendTextInput({ data, session })
   })
+  terminal.onSelectionChange(() => {
+    if (terminal.hasSelection()) {
+      applyA11ySelectionMirror({ session, text: terminal.getSelection() })
+
+      return
+    }
+
+    clearA11ySelectionMirror({ session })
+  })
 
   connectTerminalSession({
     onConnectedChange: params.onConnectedChange,
@@ -842,6 +884,7 @@ export const TerminalView = (props: {
     if (!session.isOpened) {
       session.isOpened = true
       session.terminal.open(session.element)
+      terminalA11ySelectionUtil.registerSelectionMirrorClearing({ container: session.element })
     }
 
     applyTerminalSize({ session })
@@ -853,6 +896,7 @@ export const TerminalView = (props: {
         return
       }
 
+      clearA11ySelectionMirror({ session })
       selectionPressPointRef.current = { x: event.clientX, y: event.clientY }
     }
 

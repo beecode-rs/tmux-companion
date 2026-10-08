@@ -11,7 +11,7 @@ import {
   type TerminalCursorKeys,
   type TerminalScrollDirection,
 } from '#src/shared/terminal-scroll-model'
-import { type ICopySelectionFrame } from '#src/shared/terminal-selection-model'
+import { type ICopySelectionFrame, type ISelectionTextFrame } from '#src/shared/terminal-selection-model'
 
 const PTY_EXIT_CLOSE_CODE = 4000
 
@@ -109,9 +109,16 @@ export class PtyWsServer {
     const copySelectionFrame = this._toCopySelectionFrame({ text })
 
     if (copySelectionFrame !== null) {
-      void this._ptyService.copySelection({ instanceId: params.instanceId, mode: params.mode }).catch(() => {
-        return undefined
-      })
+      void this._ptyService
+        .copySelection({ instanceId: params.instanceId, mode: params.mode })
+        .then((text) => {
+          if (text !== null) {
+            this._sendSelectionText({ text, ws: params.ws })
+          }
+        })
+        .catch(() => {
+          return undefined
+        })
 
       return
     }
@@ -222,6 +229,16 @@ export class PtyWsServer {
     }
 
     params.ws.send(Buffer.from(JSON.stringify(params.scrollState)))
+  }
+
+  protected _sendSelectionText(params: { text: string; ws: WebSocket }): void {
+    if (params.ws.readyState !== WebSocket.OPEN) {
+      return
+    }
+
+    const frame: ISelectionTextFrame = { text: params.text, type: 'selection-text' }
+
+    params.ws.send(Buffer.from(JSON.stringify(frame)))
   }
 
   protected _toCopySelectionFrame(params: { text: string }): ICopySelectionFrame | null {

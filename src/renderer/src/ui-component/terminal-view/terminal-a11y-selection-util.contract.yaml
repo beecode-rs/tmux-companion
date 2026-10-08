@@ -1,0 +1,48 @@
+subject: terminalA11ySelectionUtil
+module: ./terminal-a11y-selection-util.js
+subjectType: function
+methods:
+  toParsedSelectionTextFrame:
+    terms:
+      # A well-formed frame mirrors the server's clipboard payload.
+      - params:
+          - text: '{"text":"hello world","type":"selection-text"}'
+        result:
+          text: hello world
+          type: selection-text
+      # Multi-line selections survive the JSON round-trip.
+      - params:
+          - text: '{"text":"first\nsecond","type":"selection-text"}'
+        result:
+          text: "first\nsecond"
+          type: selection-text
+      # An empty selection is still a valid frame (mirrors as a clear).
+      - params:
+          - text: '{"text":"","type":"selection-text"}'
+        result:
+          text: ''
+          type: selection-text
+      # Malformed JSON never parses into a frame.
+      - params:
+          - text: 'not json'
+        result: null
+      # Frames carrying another discriminator are rejected.
+      - params:
+          - text: '{"text":"hello","type":"scroll-state"}'
+        result: null
+      # Non-string text payloads are rejected.
+      - params:
+          - text: '{"text":123,"type":"selection-text"}'
+        result: null
+      # Extra keys violate the strict frame shape.
+      - params:
+          - text: '{"text":"hello","type":"selection-text","extra":1}'
+        result: null
+      # Missing keys violate the strict frame shape.
+      - params:
+          - text: '{"type":"selection-text"}'
+        result: null
+      # Scroll-state frames never parse as selection-text.
+      - params:
+          - text: '{"historySize":0,"isInCopyMode":false,"scrollPosition":0}'
+        result: null
