@@ -13,6 +13,7 @@ import { type TerminalDetectService } from '#src/main/business/service/terminal-
 import { type TerminalLaunchService } from '#src/main/business/service/terminal-launch-service'
 import { tmuxParseUtil } from '#src/main/business/service/tmux-parse-util'
 import { type TmuxService } from '#src/main/business/service/tmux-service'
+import { type UpdateService } from '#src/main/business/service/update-service'
 import { type SessionEventsMode } from '#src/shared/api-model'
 import { type IInstance, type IInstanceSshConfig } from '#src/shared/instance-model'
 import { sessionNamingUtil } from '#src/shared/session-naming-util'
@@ -97,6 +98,8 @@ export class ApiServer {
 
   protected readonly _token: string
 
+  protected readonly _updateService: UpdateService
+
   constructor(params: {
     controlModeService: ControlModeService
     ghosttyThemeService: GhosttyThemeService
@@ -107,6 +110,7 @@ export class ApiServer {
     terminalDetectService: TerminalDetectService
     terminalLaunchService: TerminalLaunchService
     tmuxService: TmuxService
+    updateService: UpdateService
   }) {
     this._app = express()
     this._httpServer = createServer(this._app)
@@ -120,6 +124,7 @@ export class ApiServer {
     this._terminalLaunchService = params.terminalLaunchService
     this._tmuxService = params.tmuxService
     this._token = randomBytes(TOKEN_BYTES).toString('hex')
+    this._updateService = params.updateService
   }
 
   async start(): Promise<IApiServerInfo> {
@@ -357,6 +362,22 @@ export class ApiServer {
     params.res.json(nextSettings)
   }
 
+  protected async _handleCheckUpdate(params: { req: Request; res: Response }): Promise<void> {
+    const updateCheck = await this._updateService.checkForUpdate()
+
+    params.res.json(updateCheck)
+  }
+
+  protected async _handleDownloadUpdate(params: { req: Request; res: Response }): Promise<void> {
+    const download = await this._updateService.downloadLatestUpdate()
+
+    params.res.json(download)
+  }
+
+  protected _handleGetUpdateDownloadStatus(params: { req: Request; res: Response }): void {
+    params.res.json(this._updateService.getDownloadStatus())
+  }
+
   protected async _isActiveSession(params: { instance: IInstance; name: string }): Promise<boolean> {
     const clientSessionName = await this._toClientSessionName({ instance: params.instance })
 
@@ -397,8 +418,11 @@ export class ApiServer {
   protected _isConflictMessage(params: { message: string }): boolean {
     const conflictPatterns = [
       'No attached tmux client',
-      'No tmux client attached',
+      'No matching update asset',
       'No terminal selected',
+      'No tmux client attached',
+      'No update available',
+      'Update download already in progress',
       'duplicate session',
     ]
 
@@ -466,6 +490,12 @@ export class ApiServer {
     )
     this._app.get('/api/terminals', this._toHandler({ handler: this._handleListTerminals.bind(this) }))
     this._app.get('/api/theme', this._toHandler({ handler: this._handleGetTheme.bind(this) }))
+    this._app.get('/api/updates/latest', this._toHandler({ handler: this._handleCheckUpdate.bind(this) }))
+    this._app.get(
+      '/api/updates/latest/download',
+      this._toHandler({ handler: this._handleGetUpdateDownloadStatus.bind(this) }),
+    )
+    this._app.post('/api/updates/latest/download', this._toHandler({ handler: this._handleDownloadUpdate.bind(this) }))
     this._app.post('/api/connection-tests', this._toHandler({ handler: this._handleTestConnection.bind(this) }))
     this._app.put('/api/settings', this._toHandler({ handler: this._handleUpdateSettings.bind(this) }))
     this._app.put('/api/settings/terminal', this._toHandler({ handler: this._handleUpdateTerminalSetting.bind(this) }))

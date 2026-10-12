@@ -1,0 +1,116 @@
+subject: updateUtil
+module: ./update-util.js
+subjectType: function
+methods:
+  normalizeVersion:
+    terms:
+      # Release tags carry a leading 'v' which the display version drops.
+      - params:
+          - version: v0.2.0
+        result: 0.2.0
+      # app.getVersion() already comes without the prefix and stays untouched.
+      - params:
+          - version: 0.2.0
+        result: 0.2.0
+  isNewerVersion:
+    terms:
+      # A tag string is accepted next to a plain version string.
+      - params:
+          - candidate: v0.2.0
+            current: 0.1.2
+        result: true
+      # Patch bumps count as newer.
+      - params:
+          - candidate: 0.1.3
+            current: 0.1.2
+        result: true
+      # Minor jumps beat any patch difference.
+      - params:
+          - candidate: 0.2.0
+            current: 0.1.9
+        result: true
+      # Major jumps beat any minor difference.
+      - params:
+          - candidate: 1.0.0
+            current: 0.9.9
+        result: true
+      # Missing segments count as zero, so 0.1 equals 0.1.0.
+      - params:
+          - candidate: 0.1.1
+            current: '0.1'
+        result: true
+      # Equal versions are not newer.
+      - params:
+          - candidate: 0.1.2
+            current: 0.1.2
+        result: false
+      # Older candidates are not newer.
+      - params:
+          - candidate: 0.1.2
+            current: 0.2.0
+        result: false
+      # Missing segments count as zero on the candidate too.
+      - params:
+          - candidate: '0.1'
+            current: 0.1.0
+        result: false
+  selectUpdateAsset:
+    terms:
+      # mac picks the universal dmg from a mixed asset list.
+      - params:
+          - assets:
+              - name: Tmux-Companion-0.2.0-universal.dmg
+                size: 100
+                url: https://example.com/Tmux-Companion-0.2.0-universal.dmg
+              - name: Tmux-Companion-0.2.0.AppImage
+                size: 90
+                url: https://example.com/Tmux-Companion-0.2.0.AppImage
+              - name: tmux-companion_0.2.0_amd64.deb
+                size: 80
+                url: https://example.com/tmux-companion_0.2.0_amd64.deb
+            platform: darwin
+        result:
+          name: Tmux-Companion-0.2.0-universal.dmg
+          size: 100
+          url: https://example.com/Tmux-Companion-0.2.0-universal.dmg
+      # linux prefers the AppImage over the deb.
+      - params:
+          - assets:
+              - name: Tmux-Companion-0.2.0-universal.dmg
+                size: 100
+                url: https://example.com/Tmux-Companion-0.2.0-universal.dmg
+              - name: Tmux-Companion-0.2.0.AppImage
+                size: 90
+                url: https://example.com/Tmux-Companion-0.2.0.AppImage
+              - name: tmux-companion_0.2.0_amd64.deb
+                size: 80
+                url: https://example.com/tmux-companion_0.2.0_amd64.deb
+            platform: linux
+        result:
+          name: Tmux-Companion-0.2.0.AppImage
+          size: 90
+          url: https://example.com/Tmux-Companion-0.2.0.AppImage
+      # linux falls back to the deb when no AppImage is published.
+      - params:
+          - assets:
+              - name: tmux-companion_0.2.0_amd64.deb
+                size: 80
+                url: https://example.com/tmux-companion_0.2.0_amd64.deb
+            platform: linux
+        result:
+          name: tmux-companion_0.2.0_amd64.deb
+          size: 80
+          url: https://example.com/tmux-companion_0.2.0_amd64.deb
+      # Platforms without a published asset get nothing.
+      - params:
+          - assets:
+              - name: Tmux-Companion-0.2.0-universal.dmg
+                size: 100
+                url: https://example.com/Tmux-Companion-0.2.0-universal.dmg
+            platform: win32
+        result: null
+      # An empty asset list gets nothing on any platform.
+      - params:
+          - assets: []
+            platform: darwin
+        result: null

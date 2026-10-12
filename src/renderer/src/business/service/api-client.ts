@@ -15,6 +15,9 @@ import {
   type ITerminalSettingResponse,
   type ITestConnectionRequest,
   type ITestConnectionResponse,
+  type IUpdateCheckResponse,
+  type IUpdateDownloadResponse,
+  type IUpdateDownloadStatusResponse,
   type IUpdateInstanceRequest,
   type IUpdateSettingsRequest,
 } from '#src/shared/api-model'
@@ -23,6 +26,10 @@ import { type IAppSettings } from '#src/shared/settings-model'
 const API_BASE_URL = 'http://127.0.0.1'
 
 export class ApiClient {
+  checkForUpdate(): Promise<IUpdateCheckResponse> {
+    return this._requestJson({ method: 'GET', path: '/api/updates/latest' })
+  }
+
   cloneSession(
     params: { instanceId: string; sourceName: string } & ICloneSessionRequest,
   ): Promise<ISessionNameResponse> {
@@ -65,12 +72,20 @@ export class ApiClient {
     })
   }
 
+  downloadUpdate(): Promise<IUpdateDownloadResponse> {
+    return this._requestJson({ method: 'POST', path: '/api/updates/latest/download' })
+  }
+
   getSettings(): Promise<IAppSettings> {
     return this._requestJson({ method: 'GET', path: '/api/settings' })
   }
 
   getTheme(): Promise<IGetThemeResponse> {
     return this._requestJson({ method: 'GET', path: '/api/theme' })
+  }
+
+  getUpdateDownloadStatus(): Promise<IUpdateDownloadStatusResponse> {
+    return this._requestJson({ method: 'GET', path: '/api/updates/latest/download' })
   }
 
   listInstances(): Promise<IListInstancesResponse> {

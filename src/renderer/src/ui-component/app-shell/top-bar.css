@@ -42,6 +42,34 @@
   cursor: default;
 }
 
+.top-bar-separator {
+  background-color: #3a3a41;
+  height: 18px;
+  width: 1px;
+}
+
+.top-bar-update-button {
+  background: transparent;
+  border: 1px solid #5fbf87;
+  border-radius: 6px;
+  color: #5fbf87;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.top-bar-update-button:hover:not(:disabled) {
+  border-color: #8ad4aa;
+  color: #8ad4aa;
+}
+
+.top-bar-update-button:disabled {
+  border-color: #3a3a41;
+  color: #5c5c63;
+  cursor: default;
+}
+
 .top-bar-notice {
   color: #d9b26a;
   font-size: 11px;

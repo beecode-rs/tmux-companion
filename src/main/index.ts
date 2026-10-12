@@ -12,6 +12,7 @@ import { TerminalDetectService } from '#src/main/business/service/terminal-detec
 import { TerminalLaunchService } from '#src/main/business/service/terminal-launch-service'
 import { TmuxService } from '#src/main/business/service/tmux-service'
 import { TrayService } from '#src/main/business/service/tray-service'
+import { UpdateService } from '#src/main/business/service/update-service'
 import { PtyWsServer } from '#src/main/server/pty-ws'
 import { ApiServer } from '#src/main/server/server'
 import { LocaleEnvUtil } from '#src/main/util/locale-env-util'
@@ -203,6 +204,7 @@ const bootstrapApp = async (): Promise<void> => {
   const terminalDetectService = new TerminalDetectService({ settingsRepo })
   const terminalLaunchService = new TerminalLaunchService({ settingsRepo, terminalDetectService })
   const ptyService = new PtyService({ settingsRepo, tmuxService })
+  const updateService = new UpdateService()
 
   terminalLaunchService.ensureDefaultTemplates()
 
@@ -216,6 +218,7 @@ const bootstrapApp = async (): Promise<void> => {
     terminalDetectService,
     terminalLaunchService,
     tmuxService,
+    updateService,
   })
 
   const serverInfo = await apiServer.start()

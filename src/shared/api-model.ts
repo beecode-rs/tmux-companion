@@ -100,3 +100,31 @@ export interface IGetThemeResponse {
   fontSize?: number
   theme?: IThemeColors
 }
+
+export interface IUpdateAsset {
+  name: string
+  size: number
+  url: string
+}
+
+export interface IUpdateCheckResponse {
+  asset: IUpdateAsset | null
+  currentVersion: string
+  isUpdateAvailable: boolean
+  latestVersion: string
+  releaseUrl: string
+}
+
+export interface IUpdateDownloadResponse {
+  filePath: string
+}
+
+export type UpdateDownloadStatus = 'completed' | 'downloading' | 'error' | 'idle'
+
+export interface IUpdateDownloadStatusResponse {
+  errorMessage?: string
+  filePath?: string
+  receivedBytes: number
+  status: UpdateDownloadStatus
+  totalBytes: number
+}
