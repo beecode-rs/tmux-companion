@@ -109,6 +109,61 @@
   color: #f0f0f2;
 }
 
+.settings-page-check-button {
+  background: transparent;
+  border: 1px solid #3a3a41;
+  border-radius: 6px;
+  color: #a9a9b0;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 12px;
+  width: fit-content;
+}
+
+.settings-page-check-button:hover {
+  border-color: #5a5a63;
+  color: #f0f0f2;
+}
+
+.settings-page-update-button {
+  background: transparent;
+  border: 1px solid #5fbf87;
+  border-radius: 6px;
+  color: #5fbf87;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 12px;
+  width: fit-content;
+}
+
+.settings-page-update-button:hover:not(:disabled) {
+  border-color: #8ad4aa;
+  color: #8ad4aa;
+}
+
+.settings-page-update-button:disabled {
+  border-color: #3a3a41;
+  color: #5c5c63;
+  cursor: default;
+}
+
+.settings-page-version-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.settings-page-version-status {
+  color: #8a8a91;
+  font-size: 11px;
+}
+
+.settings-page-version-value {
+  color: #f0f0f2;
+  font-size: 13px;
+}
+
 .settings-page-error {
   color: #e08080;
   font-size: 12px;

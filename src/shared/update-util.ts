@@ -1,4 +1,4 @@
-import { type IUpdateAsset } from '#src/shared/api-model'
+import { type IUpdateAsset, type UpdateFlowState } from '#src/shared/api-model'
 
 const PLATFORM_ASSET_SUFFIXES: Record<string, string[]> = {
   darwin: ['.dmg'],
@@ -53,5 +53,41 @@ export const updateUtil = {
       })
 
     return matchedAsset ?? null
+  },
+
+  toDownloadButtonLabel: (params: {
+    downloadPercent: number | null
+    latestVersion: string
+    updateFlowState: UpdateFlowState
+  }): string => {
+    const { downloadPercent, latestVersion, updateFlowState } = params
+
+    if (updateFlowState === 'downloading') {
+      if (downloadPercent === null) {
+        return 'Downloading…'
+      }
+
+      return `Downloading… ${String(downloadPercent)}%`
+    }
+
+    if (updateFlowState === 'downloaded') {
+      return 'Opened installer'
+    }
+
+    return `Download v${latestVersion}`
+  },
+
+  toUpdateButtonTitle: (params: {
+    currentVersion: string
+    downloadedFilePath: string | null
+    latestVersion: string
+  }): string => {
+    const { currentVersion, downloadedFilePath, latestVersion } = params
+
+    if (downloadedFilePath !== null) {
+      return `Installer saved to ${downloadedFilePath}`
+    }
+
+    return `Version ${latestVersion} available (current ${currentVersion})`
   },
 }

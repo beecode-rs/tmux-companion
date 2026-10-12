@@ -114,3 +114,43 @@ methods:
           - assets: []
             platform: darwin
         result: null
+  toDownloadButtonLabel:
+    terms:
+      # Before anything starts the link names the version it would fetch.
+      - params:
+          - downloadPercent: null
+            latestVersion: 0.2.0
+            updateFlowState: idle
+        result: Download v0.2.0
+      # Downloading without a known size shows no percentage.
+      - params:
+          - downloadPercent: null
+            latestVersion: 0.2.0
+            updateFlowState: downloading
+        result: Downloading…
+      # Downloading with a known size shows the percentage.
+      - params:
+          - downloadPercent: 42
+            latestVersion: 0.2.0
+            updateFlowState: downloading
+        result: Downloading… 42%
+      # After the download the installer has already been opened.
+      - params:
+          - downloadPercent: 100
+            latestVersion: 0.2.0
+            updateFlowState: downloaded
+        result: Opened installer
+  toUpdateButtonTitle:
+    terms:
+      # Once downloaded the tooltip points at the saved installer.
+      - params:
+          - currentVersion: 0.1.2
+            downloadedFilePath: /Users/demo/Downloads/Tmux-Companion-0.2.0-universal.dmg
+            latestVersion: 0.2.0
+        result: Installer saved to /Users/demo/Downloads/Tmux-Companion-0.2.0-universal.dmg
+      # Before that the tooltip shows the version transition.
+      - params:
+          - currentVersion: 0.1.2
+            downloadedFilePath: null
+            latestVersion: 0.2.0
+        result: Version 0.2.0 available (current 0.1.2)

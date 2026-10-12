@@ -121,6 +121,8 @@ export interface IUpdateDownloadResponse {
 
 export type UpdateDownloadStatus = 'completed' | 'downloading' | 'error' | 'idle'
 
+export type UpdateFlowState = 'downloaded' | 'downloading' | 'idle'
+
 export interface IUpdateDownloadStatusResponse {
   errorMessage?: string
   filePath?: string

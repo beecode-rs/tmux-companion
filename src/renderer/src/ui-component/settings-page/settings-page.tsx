@@ -2,10 +2,12 @@ import { type ReactElement, useEffect, useState } from 'react'
 
 import { ApiClient } from '#src/renderer/src/business/service/api-client'
 import { useInstances } from '#src/renderer/src/business/service/instances-store'
+import { useUpdateStore } from '#src/renderer/src/business/service/update-store'
 import { errorMessageUtil } from '#src/renderer/src/util/error-message-util'
 import { type ITerminalInfo, type IUpdateSettingsRequest } from '#src/shared/api-model'
 import { appTitleUtil } from '#src/shared/app-title-util'
 import { type IAppSettings } from '#src/shared/settings-model'
+import { updateUtil } from '#src/shared/update-util'
 
 import '#src/renderer/src/ui-component/settings-page/settings-page.css'
 
@@ -16,6 +18,14 @@ interface ISettingsPageProps {
 const APP_TITLE = appTitleUtil.resolve({ isDev: import.meta.env.DEV })
 
 const HOTKEY_DEFAULT_HINT = 'default: CommandOrControl+Alt+T'
+
+const resolveVersionStatusText = (params: { isUpdateAvailable: boolean; latestVersion: string }): string => {
+  if (params.isUpdateAvailable) {
+    return `New version v${params.latestVersion} available`
+  }
+
+  return `Up to date (latest v${params.latestVersion})`
+}
 
 const toTemplateEntries = (params: {
   launchTemplates: Record<string, string>
@@ -36,9 +46,19 @@ const toTemplateEntries = (params: {
 export const SettingsPage = (props: ISettingsPageProps): ReactElement => {
   const { onOpenAbout } = props
   const { refreshSettings, settings: storedSettings } = useInstances()
+  const {
+    downloadPercent,
+    downloadUpdate,
+    downloadedFilePath,
+    error: updateError,
+    refreshUpdateCheck,
+    updateCheck,
+    updateFlowState,
+  } = useUpdateStore()
   const [draftSettings, setDraftSettings] = useState<IAppSettings | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [terminals, setTerminals] = useState<ITerminalInfo[]>([])
+  const [currentVersion, setCurrentVersion] = useState('')
 
   useEffect(() => {
     if (draftSettings !== null || storedSettings === null) {
@@ -47,6 +67,12 @@ export const SettingsPage = (props: ISettingsPageProps): ReactElement => {
 
     setDraftSettings(storedSettings)
   }, [draftSettings, storedSettings])
+
+  useEffect(() => {
+    void window.tmuxCompanion.getVersion().then((version) => {
+      setCurrentVersion(version)
+    })
+  }, [])
 
   useEffect(() => {
     void new ApiClient()
@@ -85,6 +111,10 @@ export const SettingsPage = (props: ISettingsPageProps): ReactElement => {
     }
 
     updateSettings({ confirmBeforeKill: !draftSettings.confirmBeforeKill })
+  }
+
+  const handleCheckUpdate = (): void => {
+    void refreshUpdateCheck()
   }
 
   const handleToggleGhosttyThemeImport = (): void => {
@@ -166,6 +196,55 @@ export const SettingsPage = (props: ISettingsPageProps): ReactElement => {
     })
   }
 
+  const renderVersionStatus = (): ReactElement | null => {
+    if (updateCheck === null) {
+      return null
+    }
+
+    return (
+      <span className="settings-page-version-status">
+        {resolveVersionStatusText({
+          isUpdateAvailable: updateCheck.isUpdateAvailable,
+          latestVersion: updateCheck.latestVersion,
+        })}
+      </span>
+    )
+  }
+
+  const renderUpdateDownloadButton = (): ReactElement | null => {
+    if (!updateCheck?.isUpdateAvailable) {
+      return null
+    }
+
+    return (
+      <button
+        className="settings-page-update-button"
+        disabled={updateFlowState === 'downloading'}
+        onClick={downloadUpdate}
+        title={updateUtil.toUpdateButtonTitle({
+          currentVersion: updateCheck.currentVersion,
+          downloadedFilePath,
+          latestVersion: updateCheck.latestVersion,
+        })}
+        type="button"
+      >
+        {updateUtil.toDownloadButtonLabel({
+          downloadPercent,
+          latestVersion: updateCheck.latestVersion,
+          updateFlowState,
+        })}
+      </button>
+    )
+  }
+
+  const renderUpdateError = (): ReactElement | null => {
+    if (updateError === null) {
+      return null
+    }
+
+    return <div className="settings-page-error">{updateError}</div>
+  }
+
   if (draftSettings === null) {
     return (
       <div className="settings-page">
@@ -214,6 +293,18 @@ export const SettingsPage = (props: ISettingsPageProps): ReactElement => {
           <input checked={draftSettings.ghosttyThemeImport} onChange={handleToggleGhosttyThemeImport} type="checkbox" />
           <span>Import theme from the Ghostty config</span>
         </label>
+      </section>
+      <section className="settings-page-section">
+        <h2 className="settings-page-section-title">Version</h2>
+        <div className="settings-page-version-row">
+          {currentVersion !== '' && <span className="settings-page-version-value">v{currentVersion}</span>}
+          <button className="settings-page-check-button" onClick={handleCheckUpdate} type="button">
+            Check for updates
+          </button>
+          {renderVersionStatus()}
+          {renderUpdateDownloadButton()}
+        </div>
+        {renderUpdateError()}
       </section>
       <section className="settings-page-section">
         <button className="settings-page-about-button" onClick={onOpenAbout} type="button">
