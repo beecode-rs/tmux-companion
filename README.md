@@ -147,6 +147,7 @@ The README covers using the app. To work on it:
 - [Development setup](resource/docs/development.md) — prerequisites, daily commands, quality gates
 - [Architecture](resource/docs/architecture.md) — how the source is layered
 - [Security internals](resource/docs/security.md) — how SSH and the local API are locked down
+- [Command history](resource/docs/command-history.md) — how tmux communication stays out of shell history
 
 ## License
 

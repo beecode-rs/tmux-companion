@@ -88,37 +88,105 @@ methods:
   toRenderedTemplate:
     terms:
       # Shell template: safe words (validated session names) substitute unquoted.
+      # Non-typing templates never receive the history-safe payload, so the
+      # shell kind is irrelevant for them.
       - params:
           - args: [tmux, attach, -t, =s01-a3f9c2]
+            shellKind: zsh
             template: 'open -na Ghostty --args -e {cmd}'
         result: 'open -na Ghostty --args -e tmux attach -t =s01-a3f9c2'
       # Shell template: unsafe word (~/ and /) gets relay-style single quoting.
       - params:
           - args: [ssh, -o, ControlPath=~/.ssh/cm-%C, -t, user@host.io, tmux, attach, -t, =s01-a3f9c2]
+            shellKind: zsh
             template: 'ghostty -e {cmd}'
         result: "ghostty -e ssh -o 'ControlPath=~/.ssh/cm-%C' -t user@host.io tmux attach -t =s01-a3f9c2"
-      # Osascript template: each word double-quoted for the do-script shell, then AppleScript-escaped.
+      # Do-script template on zsh: the typed payload is two lines (enable line,
+      # then the command), and the raw newline renders as AppleScript
+      # string concatenation with linefeed.
       - params:
           - args: [tmux, attach, -t, =s01-a3f9c2]
+            shellKind: zsh
             template: 'osascript -e ''tell application "Terminal" to do script "{cmd}"'' -e ''tell application "Terminal" to activate'''
-        result: 'osascript -e ''tell application "Terminal" to do script "\"tmux\" \"attach\" \"-t\" \"=s01-a3f9c2\""'' -e ''tell application "Terminal" to activate'''
-      # Osascript template with double quotes inside a cmd word: escaped for both the shell and the AppleScript string layer.
+        result: 'osascript -e ''tell application "Terminal" to do script " setopt HIST_IGNORE_SPACE" & linefeed & " \"tmux\" \"attach\" \"-t\" \"=s01-a3f9c2\""'' -e ''tell application "Terminal" to activate'''
+      # Do-script template on bash: the enable line appends ignorespace to
+      # HISTCONTROL without clobbering an existing value.
+      - params:
+          - args: [tmux, attach, -t, =s01-a3f9c2]
+            shellKind: bash
+            template: 'osascript -e ''tell application "Terminal" to do script "{cmd}"'''
+        result: 'osascript -e ''tell application "Terminal" to do script " HISTCONTROL=ignorespace${HISTCONTROL:+:$HISTCONTROL}" & linefeed & " \"tmux\" \"attach\" \"-t\" \"=s01-a3f9c2\""'''
+      # Do-script template on fish: no enable line, only the leading space, so
+      # no linefeed rendering either.
+      - params:
+          - args: [tmux, attach, -t, =s01-a3f9c2]
+            shellKind: fish
+            template: 'osascript -e ''tell application "Terminal" to do script "{cmd}"'''
+        result: 'osascript -e ''tell application "Terminal" to do script " \"tmux\" \"attach\" \"-t\" \"=s01-a3f9c2\""'''
+      # Do-script template on an unknown shell: same space-prefix-only shape.
+      - params:
+          - args: [tmux, attach, -t, =s01-a3f9c2]
+            shellKind: unknown
+            template: 'osascript -e ''tell application "Terminal" to do script "{cmd}"'''
+        result: 'osascript -e ''tell application "Terminal" to do script " \"tmux\" \"attach\" \"-t\" \"=s01-a3f9c2\""'''
+      # Do-script template typing an ssh-wrapped attach: the payload wraps the
+      # whole local ssh command, not just the tmux part.
+      - params:
+          - args: [ssh, -t, user@host.io, tmux, attach, -t, =s01-a3f9c2]
+            shellKind: zsh
+            template: 'osascript -e ''tell application "Terminal" to do script "{cmd}"'''
+        result: 'osascript -e ''tell application "Terminal" to do script " setopt HIST_IGNORE_SPACE" & linefeed & " \"ssh\" \"-t\" \"user@host.io\" \"tmux\" \"attach\" \"-t\" \"=s01-a3f9c2\""'''
+      # Custom write-text template (iTerm2 typing into an existing session):
+      # typing template, so the payload is history-safe wrapped.
+      - params:
+          - args: [tmux, attach, -t, =s01-a3f9c2]
+            shellKind: zsh
+            template: 'osascript -e ''tell application "iTerm2" to tell current session of current window to write text "{cmd}"'''
+        result: 'osascript -e ''tell application "iTerm2" to tell current session of current window to write text " setopt HIST_IGNORE_SPACE" & linefeed & " \"tmux\" \"attach\" \"-t\" \"=s01-a3f9c2\""'''
+      # Custom template with {cmd} in double quotes on bash: the outer /bin/sh
+      # -c would expand the ${HISTCONTROL...} in the enable line at launch
+      # time, so the payload degrades to a space prefix only.
+      - params:
+          - args: [tmux, attach, -t, =s01-a3f9c2]
+            shellKind: bash
+            template: 'osascript -e "tell application \"Terminal\" to do script \"{cmd}\""'
+        result: 'osascript -e "tell application \"Terminal\" to do script \" \"tmux\" \"attach\" \"-t\" \"=s01-a3f9c2\"\""'
+      # Custom template with {cmd} in double quotes on zsh: the setopt enable
+      # line carries no dollar expansion, so it is kept as-is.
+      - params:
+          - args: [tmux, attach, -t, =s01-a3f9c2]
+            shellKind: zsh
+            template: 'osascript -e "tell application \"Terminal\" to do script \"{cmd}\""'
+        result: 'osascript -e "tell application \"Terminal\" to do script \" setopt HIST_IGNORE_SPACE" & linefeed & " \"tmux\" \"attach\" \"-t\" \"=s01-a3f9c2\"\""'
+      # Do-script template with double quotes inside a cmd word: escaped for
+      # both the shell and the AppleScript string layer, on top of the wrapper.
       - params:
           - args: [printf, 'hello "world"']
+            shellKind: zsh
             template: 'osascript -e ''tell application "Terminal" to do script "{cmd}"'''
-        result: 'osascript -e ''tell application "Terminal" to do script "\"printf\" \"hello \\\"world\\\"\""'''
-      # Osascript template: dollar and backtick are neutralized so the do-script shell cannot expand them.
+        result: 'osascript -e ''tell application "Terminal" to do script " setopt HIST_IGNORE_SPACE" & linefeed & " \"printf\" \"hello \\\"world\\\"\""'''
+      # Do-script template: dollar and backtick are neutralized so the do-script shell cannot expand them.
       - params:
           - args: [echo, '$HOME', 'a`b`c']
+            shellKind: zsh
             template: 'osascript -e ''tell application "Terminal" to do script "{cmd}"'''
-        result: 'osascript -e ''tell application "Terminal" to do script "\"echo\" \"\\$HOME\" \"a\\`b\\`c\""'''
+        result: 'osascript -e ''tell application "Terminal" to do script " setopt HIST_IGNORE_SPACE" & linefeed & " \"echo\" \"\\$HOME\" \"a\\`b\\`c\""'''
+      # Osascript create-window template execs the command instead of typing
+      # it into a shell: no history-safe wrapper, shell kind ignored.
+      - params:
+          - args: [tmux, attach, -t, =s01-a3f9c2]
+            shellKind: zsh
+            template: 'osascript -e ''tell application "iTerm2" to create window with default profile command "{cmd}"'' -e ''tell application "iTerm2" to activate'''
+        result: 'osascript -e ''tell application "iTerm2" to create window with default profile command "\"tmux\" \"attach\" \"-t\" \"=s01-a3f9c2\""'' -e ''tell application "iTerm2" to activate'''
       # Template that already quotes {cmd}: safe words pass through untouched inside the quotes.
       - params:
           - args: [tmux, attach, -t, =s01-a3f9c2]
+            shellKind: zsh
             template: 'ptyxis -x "{cmd}"'
         result: 'ptyxis -x "tmux attach -t =s01-a3f9c2"'
       # Shell template with -- separator: safe words substitute verbatim.
       - params:
           - args: [ssh, -t, user@host.io, tmux, attach, -t, =s01-a3f9c2]
+            shellKind: zsh
             template: 'gnome-terminal -- {cmd}'
         result: 'gnome-terminal -- ssh -t user@host.io tmux attach -t =s01-a3f9c2'

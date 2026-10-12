@@ -1,17 +1,33 @@
 import { randomUUID } from 'node:crypto'
 
 import { type SettingsRepo } from '#src/main/business/repo/settings-repo'
+import { type SshConnectionService } from '#src/main/business/service/ssh-connection-service'
 import { type TmuxService } from '#src/main/business/service/tmux-service'
+import { shellHistoryUtil } from '#src/main/util/shell-history-util'
 import { instanceLabelUtil } from '#src/shared/instance-label-util'
-import { type IInstance, type IInstanceSshConfig, type InstanceType } from '#src/shared/instance-model'
+import {
+  type DetectedOs,
+  type DetectedShell,
+  type IDetectedEnv,
+  type IInstance,
+  type IInstanceSshConfig,
+  type InstanceType,
+} from '#src/shared/instance-model'
 
 export class InstanceService {
   protected readonly _settingsRepo: SettingsRepo
 
+  protected readonly _sshConnectionService: SshConnectionService
+
   protected readonly _tmuxService: TmuxService
 
-  constructor(params: { settingsRepo: SettingsRepo; tmuxService: TmuxService }) {
+  constructor(params: {
+    settingsRepo: SettingsRepo
+    sshConnectionService: SshConnectionService
+    tmuxService: TmuxService
+  }) {
     this._settingsRepo = params.settingsRepo
+    this._sshConnectionService = params.sshConnectionService
     this._tmuxService = params.tmuxService
   }
 
@@ -26,6 +42,35 @@ export class InstanceService {
     this._settingsRepo.saveInstances({ instances: [...instances, instance] })
 
     return instance
+  }
+
+  async detectInstanceEnv(params: { id: string }): Promise<IInstance> {
+    const targetInstance = this._findInstance({
+      id: params.id,
+      instances: this._settingsRepo.getInstances(),
+    })
+    const detectedEnv = await this._toDetectedEnv({ instance: targetInstance })
+
+    // Re-read after the probe await and merge into the fresh list: concurrent
+    // detections and user edits during the probe must survive this save, so
+    // there is no await between the re-read and the save.
+    const currentInstances = this._settingsRepo.getInstances()
+    const currentInstance = this._findInstance({ id: params.id, instances: currentInstances })
+    const nextInstance: IInstance = {
+      ...currentInstance,
+      ...this._toNextDetectedEnv({ detectedEnv, targetInstance: currentInstance }),
+    }
+    const nextInstances = currentInstances.map((instance) => {
+      if (instance.id !== nextInstance.id) {
+        return instance
+      }
+
+      return nextInstance
+    })
+
+    this._settingsRepo.saveInstances({ instances: nextInstances })
+
+    return nextInstance
   }
 
   async deleteInstance(params: { id: string; killSessions: boolean }): Promise<void> {
@@ -124,6 +169,47 @@ export class InstanceService {
       ssh: params.ssh,
       type: 'ssh',
     }
+  }
+
+  protected async _toDetectedEnv(params: { instance: IInstance }): Promise<IDetectedEnv> {
+    if (params.instance.type === 'local') {
+      return shellHistoryUtil.toDetectedEnvFromLocal({ env: process.env, platform: process.platform })
+    }
+
+    if (params.instance.ssh === undefined) {
+      return { detectedOs: 'unknown', detectedShell: 'unknown' }
+    }
+
+    return this._sshConnectionService.detectRemoteEnv({ ssh: params.instance.ssh })
+  }
+
+  protected _toNextDetectedEnv(params: { detectedEnv: IDetectedEnv; targetInstance: IInstance }): IDetectedEnv {
+    return {
+      detectedOs: this._toNextDetectedOs({
+        next: params.detectedEnv.detectedOs,
+        previous: params.targetInstance.detectedOs,
+      }),
+      detectedShell: this._toNextDetectedShell({
+        next: params.detectedEnv.detectedShell,
+        previous: params.targetInstance.detectedShell,
+      }),
+    }
+  }
+
+  protected _toNextDetectedOs(params: { next: DetectedOs; previous: DetectedOs | undefined }): DetectedOs {
+    if (params.next !== 'unknown') {
+      return params.next
+    }
+
+    return params.previous ?? 'unknown'
+  }
+
+  protected _toNextDetectedShell(params: { next: DetectedShell; previous: DetectedShell | undefined }): DetectedShell {
+    if (params.next !== 'unknown') {
+      return params.next
+    }
+
+    return params.previous ?? 'unknown'
   }
 
   protected _toNextLabel(params: { label?: string; targetInstance: IInstance }): string {

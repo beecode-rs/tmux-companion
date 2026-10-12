@@ -1,0 +1,170 @@
+subject: shellHistoryUtil
+module: ./shell-history-util.js
+subjectType: function
+methods:
+  toDetectedEnvFromLocal:
+    terms:
+      # Local mac with zsh as the login shell.
+      - params:
+          - env:
+              SHELL: /bin/zsh
+            platform: darwin
+        result:
+          detectedOs: mac
+          detectedShell: zsh
+      # Local linux with fish as the login shell.
+      - params:
+          - env:
+              SHELL: /usr/bin/fish
+            platform: linux
+        result:
+          detectedOs: linux
+          detectedShell: fish
+      # SHELL missing from the environment: os still resolves, shell stays unknown.
+      - params:
+          - env: {}
+            platform: darwin
+        result:
+          detectedOs: mac
+          detectedShell: unknown
+      # Empty SHELL behaves like a missing one.
+      - params:
+          - env:
+              SHELL: ''
+            platform: linux
+        result:
+          detectedOs: linux
+          detectedShell: unknown
+  toDetectedEnvFromProbeOutput:
+    terms:
+      # Probe stdout is 'uname -s' on the first line, $SHELL on the second.
+      - params:
+          - stdout: "Darwin\n/bin/zsh"
+        result:
+          detectedOs: mac
+          detectedShell: zsh
+      - params:
+          - stdout: "Linux\n/usr/bin/fish"
+        result:
+          detectedOs: linux
+          detectedShell: fish
+      # Empty remote SHELL prints an empty second line: shell unknown, os kept.
+      - params:
+          - stdout: "Linux\n"
+        result:
+          detectedOs: linux
+          detectedShell: unknown
+      # Missing second line entirely (printf output absent).
+      - params:
+          - stdout: Linux
+        result:
+          detectedOs: linux
+          detectedShell: unknown
+      # Unrecognized uname and shell both fall back to unknown.
+      - params:
+          - stdout: "SunOS\n/bin/ksh"
+        result:
+          detectedOs: unknown
+          detectedShell: unknown
+      # Empty probe output: nothing detected.
+      - params:
+          - stdout: ''
+        result:
+          detectedOs: unknown
+          detectedShell: unknown
+  toDetectedOsFromPlatform:
+    terms:
+      - params:
+          - platform: darwin
+        result: mac
+      - params:
+          - platform: linux
+        result: linux
+      - params:
+          - platform: win32
+        result: windows
+      - params:
+          - platform: freebsd
+        result: unknown
+  toDetectedOsFromUname:
+    terms:
+      - params:
+          - unameS: Darwin
+        result: mac
+      - params:
+          - unameS: Linux
+        result: linux
+      # Git-bash/MSYS/Cygwin uname prefixes map to windows.
+      - params:
+          - unameS: MINGW64_NT-10.0-19045
+        result: windows
+      - params:
+          - unameS: CYGWIN_NT-6.1
+        result: windows
+      - params:
+          - unameS: SunOS
+        result: unknown
+      # Surrounding whitespace is tolerated.
+      - params:
+          - unameS: '  Darwin  '
+        result: mac
+  toDetectedShellFromPath:
+    terms:
+      # Basename of the shell path decides the kind.
+      - params:
+          - shellPath: /bin/zsh
+        result: zsh
+      - params:
+          - shellPath: /opt/homebrew/bin/zsh
+        result: zsh
+      - params:
+          - shellPath: /usr/bin/fish
+        result: fish
+      - params:
+          - shellPath: /bin/bash
+        result: bash
+      # Bare shell name without a directory part.
+      - params:
+          - shellPath: zsh
+        result: zsh
+      # POSIX sh is not one of the supported history kinds.
+      - params:
+          - shellPath: /bin/sh
+        result: unknown
+      # Empty path: unknown.
+      - params:
+          - shellPath: ''
+        result: unknown
+  toHistorySafePayload:
+    terms:
+      # zsh needs HIST_IGNORE_SPACE enabled first; the option is read at line
+      # accept time, so the enable line and the command are typed as two lines,
+      # each with a leading space.
+      - params:
+          - command: tmux attach -t =s01-a3f9c2
+            shellKind: zsh
+        result: " setopt HIST_IGNORE_SPACE\n tmux attach -t =s01-a3f9c2"
+      # bash appends ignorespace to HISTCONTROL instead of clobbering it.
+      - params:
+          - command: tmux attach -t =s01-a3f9c2
+            shellKind: bash
+        result: " HISTCONTROL=ignorespace${HISTCONTROL:+:$HISTCONTROL}\n tmux attach -t =s01-a3f9c2"
+      # fish skips space-prefixed commands by default: no enable line.
+      - params:
+          - command: tmux attach -t =s01-a3f9c2
+            shellKind: fish
+        result: ' tmux attach -t =s01-a3f9c2'
+      # Unknown shell: no shell-specific syntax, just the leading space.
+      - params:
+          - command: tmux attach -t =s01-a3f9c2
+            shellKind: unknown
+        result: ' tmux attach -t =s01-a3f9c2'
+  toProbeCommandWords:
+    terms:
+      # One non-interactive ssh probe: uname -s on line one, $SHELL on line two
+      # (expanded by the remote shell inside the inner sh).
+      - params: []
+        result:
+          - sh
+          - -c
+          - 'uname -s; printf %s "$SHELL"'

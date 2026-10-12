@@ -185,6 +185,7 @@ export class ApiServer {
     })
 
     this._controlModeService.start({ instanceId: instance.id })
+    void this._instanceService.detectInstanceEnv({ id: instance.id }).catch(() => undefined)
     params.res.status(201).json({ instance })
   }
 

@@ -198,8 +198,8 @@ const bootstrapApp = async (): Promise<void> => {
   const tmuxService = new TmuxService()
   const controlModeService = new ControlModeService({ settingsRepo, tmuxService })
   const ghosttyThemeService = new GhosttyThemeService({ settingsRepo })
-  const instanceService = new InstanceService({ settingsRepo, tmuxService })
   const sshConnectionService = new SshConnectionService()
+  const instanceService = new InstanceService({ settingsRepo, sshConnectionService, tmuxService })
   const terminalDetectService = new TerminalDetectService({ settingsRepo })
   const terminalLaunchService = new TerminalLaunchService({ settingsRepo, terminalDetectService })
   const ptyService = new PtyService({ settingsRepo, tmuxService })
@@ -260,6 +260,9 @@ const bootstrapApp = async (): Promise<void> => {
 
   settingsRepo.getInstances().forEach((instance) => {
     controlModeService.start({ instanceId: instance.id })
+    void instanceService.detectInstanceEnv({ id: instance.id }).catch((error: unknown) => {
+      logError({ context: `env detection failed for instance '${instance.label}'`, error })
+    })
   })
 
   const trayService = new TrayService({

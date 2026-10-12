@@ -1,11 +1,24 @@
 import { SshExecutor } from '#src/main/exec/ssh-executor'
 import { type IExecFileResult } from '#src/main/util/exec-file-util'
+import { shellHistoryUtil } from '#src/main/util/shell-history-util'
 import { type ITestConnectionResponse } from '#src/shared/api-model'
-import { type IInstanceSshConfig } from '#src/shared/instance-model'
+import { type IDetectedEnv, type IInstanceSshConfig } from '#src/shared/instance-model'
+
+const DETECT_REMOTE_ENV_TIMEOUT_MS = 20000
 
 const TEST_CONNECTION_TIMEOUT_MS = 20000
 
 export class SshConnectionService {
+  async detectRemoteEnv(params: { ssh: IInstanceSshConfig }): Promise<IDetectedEnv> {
+    const result = await this._toDetectResult({ ssh: params.ssh })
+
+    if (result?.code !== 0) {
+      return { detectedOs: 'unknown', detectedShell: 'unknown' }
+    }
+
+    return shellHistoryUtil.toDetectedEnvFromProbeOutput({ stdout: result.stdout })
+  }
+
   async testConnection(params: { ssh: IInstanceSshConfig }): Promise<ITestConnectionResponse> {
     const result = await this._toTestResult({ ssh: params.ssh })
 
@@ -18,6 +31,17 @@ export class SshConnectionService {
     }
 
     return { message: this._toSuccessMessage({ result }) }
+  }
+
+  protected _toDetectResult(params: { ssh: IInstanceSshConfig }): Promise<IExecFileResult | null> {
+    const resultPromise = new SshExecutor({ ssh: params.ssh }).runCommand(shellHistoryUtil.toProbeCommandWords())
+    const timeoutPromise = new Promise<null>((resolve) => {
+      setTimeout(() => {
+        resolve(null)
+      }, DETECT_REMOTE_ENV_TIMEOUT_MS)
+    })
+
+    return Promise.race([resultPromise, timeoutPromise])
   }
 
   protected _toFailureMessage(params: { result: IExecFileResult }): string {

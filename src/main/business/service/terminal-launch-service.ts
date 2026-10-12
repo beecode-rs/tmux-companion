@@ -2,8 +2,9 @@ import { type SettingsRepo } from '#src/main/business/repo/settings-repo'
 import { type TerminalDetectService } from '#src/main/business/service/terminal-detect-service'
 import { terminalLaunchUtil } from '#src/main/business/service/terminal-launch-util'
 import { ExecFileUtil, type IExecFileResult } from '#src/main/util/exec-file-util'
+import { shellHistoryUtil } from '#src/main/util/shell-history-util'
 import { type ITerminalInfo } from '#src/shared/api-model'
-import { type IInstance } from '#src/shared/instance-model'
+import { type DetectedShell, type IInstance } from '#src/shared/instance-model'
 
 interface ITerminalLaunchTemplateEntry {
   id: string
@@ -76,7 +77,11 @@ export class TerminalLaunchService {
     const terminal = this._toTerminalInfo({ terminalId: terminalList.selected, terminals: terminalList.detected })
     const args = terminalLaunchUtil.toAttachArgs({ instance: params.instance, sessionName: params.sessionName })
     const template = this.toLaunchTemplate({ terminal })
-    const renderedTemplate = terminalLaunchUtil.toRenderedTemplate({ args, template })
+    const renderedTemplate = terminalLaunchUtil.toRenderedTemplate({
+      args,
+      shellKind: this._toLocalDetectedShell(),
+      template,
+    })
     const result = await this._toLaunchResult({ renderedTemplate })
 
     this._assertLaunched({ result })
@@ -134,6 +139,18 @@ export class TerminalLaunchService {
     }
 
     return `open -na ${params.terminal.name} --args -e {cmd}`
+  }
+
+  protected _toLocalDetectedShell(): DetectedShell {
+    const localInstance = this._settingsRepo.getInstances().find((instance) => {
+      return instance.type === 'local'
+    })
+
+    if (localInstance?.detectedShell !== undefined) {
+      return localInstance.detectedShell
+    }
+
+    return shellHistoryUtil.toDetectedEnvFromLocal({ env: process.env, platform: process.platform }).detectedShell
   }
 
   protected _toLaunchResult(params: { renderedTemplate: string }): Promise<IExecFileResult | null> {

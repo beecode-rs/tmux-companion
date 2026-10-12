@@ -36,7 +36,11 @@ export class SshExecutor implements IExecutor {
   }
 
   run(args: string[]): Promise<IExecFileResult> {
-    const quotedWords = this.toTmuxCommandWords({ args }).map((word) => {
+    return this.runCommand(this.toTmuxCommandWords({ args }))
+  }
+
+  runCommand(args: string[]): Promise<IExecFileResult> {
+    const quotedWords = args.map((word) => {
       return shellQuoteUtil.toShellWord(word)
     })
 
