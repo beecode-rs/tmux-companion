@@ -7,10 +7,13 @@ import { pipeline } from 'node:stream/promises'
 
 import {
   type IUpdateAsset,
+  type IUpdateCheckFailure,
   type IUpdateCheckResponse,
+  type IUpdateCheckResult,
   type IUpdateDownloadResponse,
   type IUpdateDownloadStatusResponse,
 } from '#src/shared/api-model'
+import { updateCheckErrorUtil } from '#src/shared/update-check-error-util'
 import { updateUtil } from '#src/shared/update-util'
 
 const GITHUB_LATEST_RELEASE_URL = 'https://api.github.com/repos/beecode-rs/tmux-companion/releases/latest'
@@ -38,19 +41,14 @@ export class UpdateService {
     totalBytes: 0,
   }
 
-  async checkForUpdate(): Promise<IUpdateCheckResponse> {
-    const response = await fetch(GITHUB_LATEST_RELEASE_URL, {
-      headers: this._toGitHubHeaders(),
-      signal: AbortSignal.timeout(UPDATE_CHECK_TIMEOUT_MS),
-    })
+  async checkForUpdate(): Promise<IUpdateCheckResult> {
+    const updateCheckResult = await this._toUpdateCheckResult()
 
-    if (!response.ok) {
-      throw new Error(`GitHub release check failed with status ${String(response.status)}`)
+    if (updateCheckResult.status === 'failed') {
+      this._warnFailedCheck({ failure: updateCheckResult.failure })
     }
 
-    const release = (await response.json()) as IGithubReleaseResponse
-
-    return this._toUpdateCheckResponse({ release })
+    return updateCheckResult
   }
 
   async downloadLatestUpdate(): Promise<IUpdateDownloadResponse> {
@@ -58,17 +56,9 @@ export class UpdateService {
       throw new Error('Update download already in progress')
     }
 
-    const updateCheck = await this.checkForUpdate()
+    const asset = await this._toAvailableUpdateAsset()
 
-    if (!updateCheck.isUpdateAvailable) {
-      throw new Error('No update available')
-    }
-
-    if (updateCheck.asset === null) {
-      throw new Error('No matching update asset for this platform')
-    }
-
-    return await this._downloadAsset({ asset: updateCheck.asset })
+    return await this._downloadAsset({ asset })
   }
 
   getDownloadStatus(): IUpdateDownloadStatusResponse {
@@ -127,6 +117,26 @@ export class UpdateService {
 
       throw error
     }
+  }
+
+  protected async _toAvailableUpdateAsset(): Promise<IUpdateAsset> {
+    const updateCheckResult = await this.checkForUpdate()
+
+    if (updateCheckResult.status === 'failed') {
+      throw new Error(updateCheckResult.failure.message)
+    }
+
+    const updateCheck = updateCheckResult.updateCheck
+
+    if (!updateCheck.isUpdateAvailable) {
+      throw new Error('No update available')
+    }
+
+    if (updateCheck.asset === null) {
+      throw new Error('No matching update asset for this platform')
+    }
+
+    return updateCheck.asset
   }
 
   protected _toContentLength(params: { response: Response }): number {
@@ -198,6 +208,26 @@ export class UpdateService {
     }, [])
   }
 
+  protected async _toUpdateCheckResult(): Promise<IUpdateCheckResult> {
+    try {
+      const response = await fetch(GITHUB_LATEST_RELEASE_URL, {
+        headers: this._toGitHubHeaders(),
+        signal: AbortSignal.timeout(UPDATE_CHECK_TIMEOUT_MS),
+      })
+
+      if (!response.ok) {
+        return { failure: updateCheckErrorUtil.toFailureFromResponse({ response }), status: 'failed' }
+      }
+
+      return {
+        status: 'ok',
+        updateCheck: this._toUpdateCheckResponse({ release: (await response.json()) as IGithubReleaseResponse }),
+      }
+    } catch (error) {
+      return { failure: updateCheckErrorUtil.toFailureFromThrown({ error }), status: 'failed' }
+    }
+  }
+
   protected _toUpdateCheckResponse(params: { release: IGithubReleaseResponse }): IUpdateCheckResponse {
     const { release } = params
     const latestVersion = updateUtil.normalizeVersion({ version: release.tag_name ?? '' })
@@ -214,5 +244,12 @@ export class UpdateService {
       latestVersion,
       releaseUrl: release.html_url ?? '',
     }
+  }
+
+  protected _warnFailedCheck(params: { failure: IUpdateCheckFailure }): void {
+    const { failure } = params
+
+    // eslint-disable-next-line no-console
+    console.warn(`tmux-companion update check failed (${failure.kind}): ${failure.message}`)
   }
 }

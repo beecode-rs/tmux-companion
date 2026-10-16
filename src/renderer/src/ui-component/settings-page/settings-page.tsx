@@ -7,6 +7,7 @@ import { errorMessageUtil } from '#src/renderer/src/util/error-message-util'
 import { type ITerminalInfo, type IUpdateSettingsRequest } from '#src/shared/api-model'
 import { appTitleUtil } from '#src/shared/app-title-util'
 import { type IAppSettings } from '#src/shared/settings-model'
+import { updateCheckErrorUtil } from '#src/shared/update-check-error-util'
 import { updateUtil } from '#src/shared/update-util'
 
 import '#src/renderer/src/ui-component/settings-page/settings-page.css'
@@ -53,6 +54,7 @@ export const SettingsPage = (props: ISettingsPageProps): ReactElement => {
     error: updateError,
     refreshUpdateCheck,
     updateCheck,
+    updateCheckFailure,
     updateFlowState,
   } = useUpdateStore()
   const [draftSettings, setDraftSettings] = useState<IAppSettings | null>(null)
@@ -237,6 +239,16 @@ export const SettingsPage = (props: ISettingsPageProps): ReactElement => {
     )
   }
 
+  const renderUpdateCheckError = (): ReactElement | null => {
+    if (updateCheckFailure === null) {
+      return null
+    }
+
+    return (
+      <div className="settings-page-error">{updateCheckErrorUtil.toUserMessage({ failure: updateCheckFailure })}</div>
+    )
+  }
+
   const renderUpdateError = (): ReactElement | null => {
     if (updateError === null) {
       return null
@@ -304,6 +316,7 @@ export const SettingsPage = (props: ISettingsPageProps): ReactElement => {
           {renderVersionStatus()}
           {renderUpdateDownloadButton()}
         </div>
+        {renderUpdateCheckError()}
         {renderUpdateError()}
       </section>
       <section className="settings-page-section">

@@ -115,6 +115,19 @@ export interface IUpdateCheckResponse {
   releaseUrl: string
 }
 
+export type UpdateCheckErrorKind =
+  'http-error' | 'invalid-response' | 'network' | 'rate-limited' | 'timeout' | 'unknown'
+
+export interface IUpdateCheckFailure {
+  httpStatusCode: number | null
+  kind: UpdateCheckErrorKind
+  message: string
+  rateLimitResetEpochMs: number | null
+}
+
+export type IUpdateCheckResult =
+  { failure: IUpdateCheckFailure; status: 'failed' } | { status: 'ok'; updateCheck: IUpdateCheckResponse }
+
 export interface IUpdateDownloadResponse {
   filePath: string
 }

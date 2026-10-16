@@ -15,19 +15,29 @@ import {
   type ITerminalSettingResponse,
   type ITestConnectionRequest,
   type ITestConnectionResponse,
-  type IUpdateCheckResponse,
+  type IUpdateCheckResult,
   type IUpdateDownloadResponse,
   type IUpdateDownloadStatusResponse,
   type IUpdateInstanceRequest,
   type IUpdateSettingsRequest,
 } from '#src/shared/api-model'
 import { type IAppSettings } from '#src/shared/settings-model'
+import { updateCheckErrorUtil } from '#src/shared/update-check-error-util'
 
 const API_BASE_URL = 'http://127.0.0.1'
 
 export class ApiClient {
-  checkForUpdate(): Promise<IUpdateCheckResponse> {
-    return this._requestJson({ method: 'GET', path: '/api/updates/latest' })
+  async checkForUpdate(): Promise<IUpdateCheckResult> {
+    try {
+      const response = await fetch(this._toUrl({ path: '/api/updates/latest' }), {
+        headers: this._toHeaders(),
+        method: 'GET',
+      })
+
+      return (await response.json()) as IUpdateCheckResult
+    } catch (error) {
+      return { failure: updateCheckErrorUtil.toUnknownFailure({ error }), status: 'failed' }
+    }
   }
 
   cloneSession(

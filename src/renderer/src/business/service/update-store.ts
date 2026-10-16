@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react'
 import { ApiClient } from '#src/renderer/src/business/service/api-client'
 import { errorMessageUtil } from '#src/renderer/src/util/error-message-util'
 import {
+  type IUpdateCheckFailure,
   type IUpdateCheckResponse,
   type IUpdateDownloadStatusResponse,
   type UpdateFlowState,
@@ -15,6 +16,7 @@ export interface IUpdateStoreApi {
   downloadedFilePath: string | null
   error: string | null
   updateCheck: IUpdateCheckResponse | null
+  updateCheckFailure: IUpdateCheckFailure | null
   updateFlowState: UpdateFlowState
   downloadUpdate: () => void
   refreshUpdateCheck: () => Promise<void>
@@ -25,6 +27,7 @@ interface IUpdateStoreState {
   downloadedFilePath: string | null
   error: string | null
   updateCheck: IUpdateCheckResponse | null
+  updateCheckFailure: IUpdateCheckFailure | null
   updateFlowState: UpdateFlowState
 }
 
@@ -48,6 +51,7 @@ class UpdateStore {
     downloadPercent: null,
     error: null,
     updateCheck: null,
+    updateCheckFailure: null,
     updateFlowState: 'idle',
   }
 
@@ -72,13 +76,15 @@ class UpdateStore {
   }
 
   readonly refreshUpdateCheck = async (): Promise<void> => {
-    try {
-      const updateCheck = await new ApiClient().checkForUpdate()
+    const updateCheckResult = await new ApiClient().checkForUpdate()
 
-      this._setState({ error: null, updateCheck })
-    } catch {
+    if (updateCheckResult.status === 'failed') {
+      this._setState({ updateCheckFailure: updateCheckResult.failure })
+
       return
     }
+
+    this._setState({ error: null, updateCheck: updateCheckResult.updateCheck, updateCheckFailure: null })
   }
 
   readonly downloadUpdate = (): void => {
@@ -166,6 +172,7 @@ export const useUpdateStore = (): IUpdateStoreApi => {
     error: state.error,
     refreshUpdateCheck: updateStore.refreshUpdateCheck,
     updateCheck: state.updateCheck,
+    updateCheckFailure: state.updateCheckFailure,
     updateFlowState: state.updateFlowState,
   }
 }

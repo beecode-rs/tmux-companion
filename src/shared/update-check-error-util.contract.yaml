@@ -1,0 +1,182 @@
+subject: updateCheckErrorUtil
+module: ./update-check-error-util.js
+subjectType: function
+methods:
+  toResponseFailure:
+    terms:
+      # A 403 with the remaining quota at zero is the unauthenticated rate limit.
+      - params:
+          - httpStatusCode: 403
+            rateLimitRemaining: '0'
+            rateLimitResetEpochMs: 1760000000000
+        result:
+          httpStatusCode: 403
+          kind: rate-limited
+          message: GitHub release check failed with status 403
+          rateLimitResetEpochMs: 1760000000000
+      # The reset header can be missing even on a rate limited response.
+      - params:
+          - httpStatusCode: 403
+            rateLimitRemaining: '0'
+            rateLimitResetEpochMs: null
+        result:
+          httpStatusCode: 403
+          kind: rate-limited
+          message: GitHub release check failed with status 403
+          rateLimitResetEpochMs: null
+      # A 403 with quota left is an ordinary HTTP error, not a rate limit.
+      - params:
+          - httpStatusCode: 403
+            rateLimitRemaining: '42'
+            rateLimitResetEpochMs: 1760000000000
+        result:
+          httpStatusCode: 403
+          kind: http-error
+          message: GitHub release check failed with status 403
+          rateLimitResetEpochMs: null
+      # A 404 means the project has no published release.
+      - params:
+          - httpStatusCode: 404
+            rateLimitRemaining: '55'
+            rateLimitResetEpochMs: null
+        result:
+          httpStatusCode: 404
+          kind: http-error
+          message: GitHub release check failed with status 404
+          rateLimitResetEpochMs: null
+      # Any other status with no rate limit headers is a plain HTTP error.
+      - params:
+          - httpStatusCode: 500
+            rateLimitRemaining: null
+            rateLimitResetEpochMs: null
+        result:
+          httpStatusCode: 500
+          kind: http-error
+          message: GitHub release check failed with status 500
+          rateLimitResetEpochMs: null
+  toFailureFromThrown:
+    terms:
+      # A failed fetch surfaces as a TypeError in the fetch body.
+      - params:
+          - error: 'new Error("fetch failed", { name: "TypeError" })'
+        result:
+          httpStatusCode: null
+          kind: network
+          message: fetch failed
+          rateLimitResetEpochMs: null
+      # AbortSignal.timeout rejects with a TimeoutError DOMException.
+      - params:
+          - error: 'new Error("The operation was aborted due to timeout", { name: "TimeoutError" })'
+        result:
+          httpStatusCode: null
+          kind: timeout
+          message: The operation was aborted due to timeout
+          rateLimitResetEpochMs: null
+      # Older runtimes abort with the plain AbortError name.
+      - params:
+          - error: 'new Error("The operation was aborted", { name: "AbortError" })'
+        result:
+          httpStatusCode: null
+          kind: timeout
+          message: The operation was aborted
+          rateLimitResetEpochMs: null
+      # An unparsable release body throws a SyntaxError from response.json().
+      - params:
+          - error: 'new Error("Unexpected token < in JSON at position 0", { name: "SyntaxError" })'
+        result:
+          httpStatusCode: null
+          kind: invalid-response
+          message: Unexpected token < in JSON at position 0
+          rateLimitResetEpochMs: null
+      # A non-Error rejection value keeps its text under the unknown kind.
+      - params:
+          - error: boom
+        result:
+          httpStatusCode: null
+          kind: unknown
+          message: boom
+          rateLimitResetEpochMs: null
+      # Errors with an unrecognized name land on the unknown kind.
+      - params:
+          - error: 'new Error("release check exploded")'
+        result:
+          httpStatusCode: null
+          kind: unknown
+          message: release check exploded
+          rateLimitResetEpochMs: null
+  toResetEpochMs:
+    terms:
+      # The header carries epoch seconds, the failure carries epoch milliseconds.
+      - params:
+          - resetSeconds: '1760000000'
+        result: 1760000000000
+      # A missing header has no reset time.
+      - params:
+          - resetSeconds: null
+        result: null
+      # A non-numeric header has no reset time.
+      - params:
+          - resetSeconds: not-a-number
+        result: null
+      # An empty header has no reset time.
+      - params:
+          - resetSeconds: ''
+        result: null
+  toUserMessage:
+    terms:
+      # Rate limit with no reset header still names the cause.
+      - params:
+          - failure:
+              httpStatusCode: 403
+              kind: rate-limited
+              message: GitHub release check failed with status 403
+              rateLimitResetEpochMs: null
+        result: GitHub API rate limit exceeded
+      # Network failures point at the connection.
+      - params:
+          - failure:
+              httpStatusCode: null
+              kind: network
+              message: fetch failed
+              rateLimitResetEpochMs: null
+        result: Network error — check your connection
+      # Timeouts say the request gave up.
+      - params:
+          - failure:
+              httpStatusCode: null
+              kind: timeout
+              message: The operation was aborted due to timeout
+              rateLimitResetEpochMs: null
+        result: Request timed out
+      # A 404 tells the user there is no release to update to.
+      - params:
+          - failure:
+              httpStatusCode: 404
+              kind: http-error
+              message: GitHub release check failed with status 404
+              rateLimitResetEpochMs: null
+        result: No GitHub release published yet for this project
+      # Other HTTP statuses keep the status visible.
+      - params:
+          - failure:
+              httpStatusCode: 503
+              kind: http-error
+              message: GitHub release check failed with status 503
+              rateLimitResetEpochMs: null
+        result: GitHub request failed with status 503
+      # Invalid responses say the answer made no sense.
+      - params:
+          - failure:
+              httpStatusCode: null
+              kind: invalid-response
+              message: Unexpected token '<' is not valid JSON
+              rateLimitResetEpochMs: null
+        result: GitHub returned an unexpected response
+      # Unknown failures fall back to the technical message.
+      - params:
+          - failure:
+              httpStatusCode: null
+              kind: unknown
+              message: release check exploded
+              rateLimitResetEpochMs: null
+        result: release check exploded

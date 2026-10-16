@@ -363,9 +363,9 @@ export class ApiServer {
   }
 
   protected async _handleCheckUpdate(params: { req: Request; res: Response }): Promise<void> {
-    const updateCheck = await this._updateService.checkForUpdate()
+    const updateCheckResult = await this._updateService.checkForUpdate()
 
-    params.res.json(updateCheck)
+    params.res.json(updateCheckResult)
   }
 
   protected async _handleDownloadUpdate(params: { req: Request; res: Response }): Promise<void> {
