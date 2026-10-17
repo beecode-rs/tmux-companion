@@ -1,4 +1,4 @@
-const SAFE_WORD_PATTERN = /^[A-Za-z0-9_@%+=,.:-]+$/
+const SAFE_WORD_PATTERN = /^[A-Za-z0-9_@%+,.:-]+$/
 
 export const shellQuoteUtil = {
   toShellWord: (value: string): string => {

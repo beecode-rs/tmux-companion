@@ -7,9 +7,15 @@ methods:
       # Safe charset (letters, digits, dash) passes through unchanged.
       - params: [s01-a3f9c2]
         result: s01-a3f9c2
-      # Every safe special (@ % + = , . : _ -) passes through unchanged.
-      - params: ['a+=b%c@d,e:f.g-h_i']
-        result: a+=b%c@d,e:f.g-h_i
+      # Every safe special (@ % + , . : _ -) passes through unchanged.
+      - params: ['a+b%c@d,e:f.g-h_i']
+        result: a+b%c@d,e:f.g-h_i
+      # Equals sign forces single-quoting: zsh equals-expands unquoted =word (tmux exact-match targets).
+      - params: ['=next-skills']
+        result: "'=next-skills'"
+      # Equals sign anywhere in the word forces single-quoting (env-style PATH words).
+      - params: ['PATH=/opt/homebrew/bin:/usr/local/bin']
+        result: "'PATH=/opt/homebrew/bin:/usr/local/bin'"
       # host-style words with @ and dots pass through.
       - params: [user@host.io]
         result: user@host.io

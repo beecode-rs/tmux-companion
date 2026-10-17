@@ -87,20 +87,20 @@ methods:
           - =s02-c1d2e3
   toRenderedTemplate:
     terms:
-      # Shell template: safe words (validated session names) substitute unquoted.
+      # Shell template: equals-prefixed tmux target gets relay-style single quoting.
       # Non-typing templates never receive the history-safe payload, so the
       # shell kind is irrelevant for them.
       - params:
           - args: [tmux, attach, -t, =s01-a3f9c2]
             shellKind: zsh
             template: 'open -na Ghostty --args -e {cmd}'
-        result: 'open -na Ghostty --args -e tmux attach -t =s01-a3f9c2'
-      # Shell template: unsafe word (~/ and /) gets relay-style single quoting.
+        result: 'open -na Ghostty --args -e tmux attach -t ''=s01-a3f9c2'''
+      # Shell template: unsafe words (~/ and =) get relay-style single quoting.
       - params:
           - args: [ssh, -o, ControlPath=~/.ssh/cm-%C, -t, user@host.io, tmux, attach, -t, =s01-a3f9c2]
             shellKind: zsh
             template: 'ghostty -e {cmd}'
-        result: "ghostty -e ssh -o 'ControlPath=~/.ssh/cm-%C' -t user@host.io tmux attach -t =s01-a3f9c2"
+        result: "ghostty -e ssh -o 'ControlPath=~/.ssh/cm-%C' -t user@host.io tmux attach -t '=s01-a3f9c2'"
       # Do-script template on zsh: the typed payload is two lines (enable line,
       # then the command), and the raw newline renders as AppleScript
       # string concatenation with linefeed.
@@ -178,15 +178,15 @@ methods:
             shellKind: zsh
             template: 'osascript -e ''tell application "iTerm2" to create window with default profile command "{cmd}"'' -e ''tell application "iTerm2" to activate'''
         result: 'osascript -e ''tell application "iTerm2" to create window with default profile command "\"tmux\" \"attach\" \"-t\" \"=s01-a3f9c2\""'' -e ''tell application "iTerm2" to activate'''
-      # Template that already quotes {cmd}: safe words pass through untouched inside the quotes.
+      # Template that already quotes {cmd}: equals-prefixed target is single-quoted inside.
       - params:
           - args: [tmux, attach, -t, =s01-a3f9c2]
             shellKind: zsh
             template: 'ptyxis -x "{cmd}"'
-        result: 'ptyxis -x "tmux attach -t =s01-a3f9c2"'
-      # Shell template with -- separator: safe words substitute verbatim.
+        result: 'ptyxis -x "tmux attach -t ''=s01-a3f9c2''"'
+      # Shell template with -- separator: equals-prefixed target is single-quoted.
       - params:
           - args: [ssh, -t, user@host.io, tmux, attach, -t, =s01-a3f9c2]
             shellKind: zsh
             template: 'gnome-terminal -- {cmd}'
-        result: 'gnome-terminal -- ssh -t user@host.io tmux attach -t =s01-a3f9c2'
+        result: 'gnome-terminal -- ssh -t user@host.io tmux attach -t ''=s01-a3f9c2'''
