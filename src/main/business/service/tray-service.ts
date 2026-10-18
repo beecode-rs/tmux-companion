@@ -1,9 +1,10 @@
-import { Menu, type MenuItemConstructorOptions, type NativeImage, Tray, app, nativeImage } from 'electron'
+import { Menu, type MenuItemConstructorOptions, type NativeImage, Tray, app, nativeImage, nativeTheme } from 'electron'
 
 import { type SettingsRepo } from '#src/main/business/repo/settings-repo'
 import { type ControlModeService } from '#src/main/business/service/control-mode-service'
 import { type PtyService } from '#src/main/business/service/pty-service'
 import { type TmuxService } from '#src/main/business/service/tmux-service'
+import { trayIconUtil } from '#src/main/business/service/tray-icon-util'
 import { type IInstance } from '#src/shared/instance-model'
 import { type ISessionInfo } from '#src/shared/session-model'
 
@@ -57,6 +58,8 @@ export class TrayService {
 
   protected _unsubscribeRefresh: (() => void) | null = null
 
+  protected _unsubscribeThemeChange: (() => void) | null = null
+
   constructor(params: {
     appTitle: string
     controlModeService: ControlModeService
@@ -87,6 +90,16 @@ export class TrayService {
     tray.setToolTip(this._appTitle)
     tray.setContextMenu(Menu.buildFromTemplate([]))
     this._tray = tray
+
+    const onThemeUpdated = (): void => {
+      this._refreshImage()
+    }
+
+    nativeTheme.on('updated', onThemeUpdated)
+
+    this._unsubscribeThemeChange = () => {
+      nativeTheme.off('updated', onThemeUpdated)
+    }
 
     this._unsubscribeRefresh = this._controlModeService.onRefresh({
       callback: () => {
@@ -121,6 +134,11 @@ export class TrayService {
     if (this._unsubscribeRefresh !== null) {
       this._unsubscribeRefresh()
       this._unsubscribeRefresh = null
+    }
+
+    if (this._unsubscribeThemeChange !== null) {
+      this._unsubscribeThemeChange()
+      this._unsubscribeThemeChange = null
     }
 
     if (this._tray !== null) {
@@ -337,7 +355,42 @@ export class TrayService {
     image.addRepresentation({ buffer: Buffer.from(TRAY_ICON_PNG_32_BASE64, 'base64'), scaleFactor: 2 })
     image.setTemplateImage(true)
 
-    return image
+    if (!nativeTheme.shouldUseDarkColors) {
+      return image
+    }
+
+    return this._toDarkThemeImage({ image })
+  }
+
+  protected _toDarkThemeImage(params: { image: NativeImage }): NativeImage {
+    const { width, height } = params.image.getSize()
+    const bitmapScale1 = trayIconUtil.toThemedBitmap({
+      bitmap: Array.from(params.image.toBitmap()),
+      isDarkColors: true,
+    })
+    const bitmapScale2 = trayIconUtil.toThemedBitmap({
+      bitmap: Array.from(params.image.toBitmap({ scaleFactor: 2 })),
+      isDarkColors: true,
+    })
+    const themedImage = nativeImage.createFromBuffer(Buffer.from(bitmapScale1), { height, width })
+
+    themedImage.addRepresentation({
+      buffer: Buffer.from(bitmapScale2),
+      height: height * 2,
+      scaleFactor: 2,
+      width: width * 2,
+    })
+    themedImage.setTemplateImage(true)
+
+    return themedImage
+  }
+
+  protected _refreshImage(): void {
+    if (this._tray === null) {
+      return
+    }
+
+    this._tray.setImage(this._toTrayImage())
   }
 
   protected _delay(params: { durationMs: number }): Promise<void> {
