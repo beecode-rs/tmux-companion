@@ -8,6 +8,7 @@ import {
   type IUpdateDownloadStatusResponse,
   type UpdateFlowState,
 } from '#src/shared/api-model'
+import { updateUtil } from '#src/shared/update-util'
 
 const UPDATE_DOWNLOAD_STATUS_POLL_INTERVAL_MS = 500
 
@@ -20,6 +21,7 @@ export interface IUpdateStoreApi {
   updateFlowState: UpdateFlowState
   downloadUpdate: () => void
   refreshUpdateCheck: () => Promise<void>
+  restartForUpdate: () => void
 }
 
 interface IUpdateStoreState {
@@ -43,6 +45,8 @@ const toDownloadPercent = (params: { status: IUpdateDownloadStatusResponse }): n
 
 class UpdateStore {
   protected readonly _listeners = new Set<() => void>()
+
+  protected _statusEpoch = 0
 
   protected _statusIntervalId: ReturnType<typeof setInterval> | null = null
 
@@ -106,7 +110,10 @@ class UpdateStore {
     void new ApiClient()
       .downloadUpdate()
       .then((result) => {
-        this._setState({ downloadedFilePath: result.filePath, updateFlowState: 'downloaded' })
+        this._setState({
+          downloadedFilePath: result.filePath,
+          updateFlowState: updateUtil.toUpdateFlowState({ status: result.status }),
+        })
         this._stopStatusPolling()
       })
       .catch((error: unknown) => {
@@ -115,17 +122,49 @@ class UpdateStore {
       })
   }
 
+  readonly restartForUpdate = (): void => {
+    void new ApiClient().restartUpdate().catch(() => {
+      return undefined
+    })
+  }
+
+  protected _applyDownloadStatus(params: { status: IUpdateDownloadStatusResponse }): void {
+    const { status } = params
+    const updateFlowState = updateUtil.toUpdateFlowState({ status: status.status })
+    const downloadPercent = toDownloadPercent({ status })
+    const isServerDrivenFlowState =
+      updateFlowState === 'downloaded' || updateFlowState === 'installing' || updateFlowState === 'restart-required'
+
+    if (!isServerDrivenFlowState) {
+      if (downloadPercent !== this._state.downloadPercent) {
+        this._setState({ downloadPercent })
+      }
+
+      return
+    }
+
+    if (downloadPercent === this._state.downloadPercent && updateFlowState === this._state.updateFlowState) {
+      return
+    }
+
+    this._setState({ downloadPercent, updateFlowState })
+  }
+
+  protected _invalidatePendingStatusRefresh(): void {
+    this._statusEpoch += 1
+  }
+
   protected _refreshDownloadStatus(): void {
+    const statusEpoch = this._statusEpoch
+
     void new ApiClient()
       .getUpdateDownloadStatus()
       .then((status) => {
-        const downloadPercent = toDownloadPercent({ status })
-
-        if (downloadPercent === this._state.downloadPercent) {
+        if (statusEpoch !== this._statusEpoch) {
           return
         }
 
-        this._setState({ downloadPercent })
+        this._applyDownloadStatus({ status })
       })
       .catch(() => {
         return
@@ -155,6 +194,7 @@ class UpdateStore {
       return
     }
 
+    this._invalidatePendingStatusRefresh()
     clearInterval(this._statusIntervalId)
     this._statusIntervalId = null
   }
@@ -171,6 +211,7 @@ export const useUpdateStore = (): IUpdateStoreApi => {
     downloadUpdate: updateStore.downloadUpdate,
     error: state.error,
     refreshUpdateCheck: updateStore.refreshUpdateCheck,
+    restartForUpdate: updateStore.restartForUpdate,
     updateCheck: state.updateCheck,
     updateCheckFailure: state.updateCheckFailure,
     updateFlowState: state.updateFlowState,

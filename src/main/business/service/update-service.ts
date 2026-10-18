@@ -1,7 +1,8 @@
 import { app, shell } from 'electron'
-import { createWriteStream } from 'node:fs'
-import { rename, rm } from 'node:fs/promises'
-import { basename, join } from 'node:path'
+import { spawn } from 'node:child_process'
+import { constants, createWriteStream } from 'node:fs'
+import { access, chmod, rename, rm } from 'node:fs/promises'
+import { basename, dirname, join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
@@ -12,6 +13,8 @@ import {
   type IUpdateCheckResult,
   type IUpdateDownloadResponse,
   type IUpdateDownloadStatusResponse,
+  type UpdateDownloadStatus,
+  type UpdateInstallType,
 } from '#src/shared/api-model'
 import { updateCheckErrorUtil } from '#src/shared/update-check-error-util'
 import { updateUtil } from '#src/shared/update-util'
@@ -19,6 +22,8 @@ import { updateUtil } from '#src/shared/update-util'
 const GITHUB_LATEST_RELEASE_URL = 'https://api.github.com/repos/beecode-rs/tmux-companion/releases/latest'
 
 const PARTIAL_FILE_SUFFIX = '.part'
+
+const STDERR_TAIL_MAX_LENGTH = 2048
 
 const UPDATE_CHECK_TIMEOUT_MS = 10000
 
@@ -52,8 +57,10 @@ export class UpdateService {
   }
 
   async downloadLatestUpdate(): Promise<IUpdateDownloadResponse> {
-    if (this._downloadStatus.status === 'downloading') {
-      throw new Error('Update download already in progress')
+    const busyStatusMessage = this._toBusyStatusMessage({ status: this._downloadStatus.status })
+
+    if (busyStatusMessage !== null) {
+      throw new Error(busyStatusMessage)
     }
 
     const asset = await this._toAvailableUpdateAsset()
@@ -63,6 +70,20 @@ export class UpdateService {
 
   getDownloadStatus(): IUpdateDownloadStatusResponse {
     return { ...this._downloadStatus }
+  }
+
+  relaunchForUpdate(): void {
+    const appImagePath = this._toAppImagePath()
+
+    if (appImagePath !== null) {
+      app.relaunch({ execPath: appImagePath })
+      app.exit(0)
+
+      return
+    }
+
+    app.relaunch()
+    app.exit(0)
   }
 
   protected _addReceivedBytes(params: { bytes: number }): void {
@@ -76,7 +97,8 @@ export class UpdateService {
 
   protected async _downloadAsset(params: { asset: IUpdateAsset }): Promise<IUpdateDownloadResponse> {
     const { asset } = params
-    const filePath = this._toDownloadFilePath({ asset })
+    const appImagePath = await this._toSelfUpdatableAppImagePath()
+    const filePath = this._toDownloadTargetFilePath({ appImagePath, asset })
     const partialFilePath = `${filePath}${PARTIAL_FILE_SUFFIX}`
 
     this._downloadStatus = {
@@ -100,10 +122,9 @@ export class UpdateService {
 
       await pipeline(this._toProgressReadable({ response }), createWriteStream(partialFilePath))
       await rename(partialFilePath, filePath)
-      this._downloadStatus = { ...this._downloadStatus, status: 'completed' }
-      await shell.openPath(filePath)
+      await this._installDownloadedUpdate({ appImagePath, filePath, installType: this._toInstallType() })
 
-      return { filePath }
+      return { filePath, status: this._downloadStatus.status }
     } catch (error) {
       await rm(partialFilePath, { force: true }).catch(() => {
         return undefined
@@ -117,6 +138,106 @@ export class UpdateService {
 
       throw error
     }
+  }
+
+  protected async _installAppImageUpdate(params: { filePath: string }): Promise<void> {
+    const { filePath } = params
+
+    this._downloadStatus = { ...this._downloadStatus, status: 'installing' }
+    await chmod(filePath, 0o755)
+    this._downloadStatus = { ...this._downloadStatus, status: 'restart-required' }
+  }
+
+  protected async _installDebUpdate(params: { filePath: string }): Promise<void> {
+    const { filePath } = params
+
+    this._downloadStatus = { ...this._downloadStatus, status: 'installing' }
+
+    const installResult = await this._toDebInstallResult({ filePath })
+    const outcome = updateUtil.toDebInstallOutcome({
+      exitCode: installResult.exitCode,
+      isSpawnFailed: installResult.isSpawnFailed,
+    })
+
+    if (outcome === 'installed') {
+      this._downloadStatus = { ...this._downloadStatus, status: 'restart-required' }
+
+      return
+    }
+
+    if (outcome === 'fallback') {
+      await shell.openPath(filePath)
+      this._downloadStatus = { ...this._downloadStatus, status: 'completed' }
+
+      return
+    }
+
+    throw new Error(`Update install failed (dpkg exit ${String(installResult.exitCode)}): ${installResult.stderrTail}`)
+  }
+
+  protected async _installDownloadedUpdate(params: {
+    appImagePath: string | null
+    filePath: string
+    installType: UpdateInstallType
+  }): Promise<void> {
+    const { appImagePath, filePath, installType } = params
+
+    if (installType === 'deb') {
+      await this._installDebUpdate({ filePath })
+
+      return
+    }
+
+    if (appImagePath !== null) {
+      await this._installAppImageUpdate({ filePath })
+
+      return
+    }
+
+    await shell.openPath(filePath)
+    this._downloadStatus = { ...this._downloadStatus, status: 'completed' }
+  }
+
+  protected async _isWritableAppImageDir(params: { appImagePath: string }): Promise<boolean> {
+    const { appImagePath } = params
+
+    try {
+      await access(dirname(appImagePath), constants.W_OK)
+
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  protected _runCommand(params: {
+    args: string[]
+    command: string
+  }): Promise<{ code: number | null; stderrTail: string }> {
+    const { args, command } = params
+
+    return new Promise((resolve, reject) => {
+      const childProcess = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+      const stderrChunks: Buffer[] = []
+
+      childProcess.stderr.on('data', (chunk: Buffer) => {
+        stderrChunks.push(chunk)
+      })
+
+      childProcess.on('error', (error: Error) => {
+        reject(error)
+      })
+
+      childProcess.on('close', (code: number | null) => {
+        const stderrTail = Buffer.concat(stderrChunks).toString('utf8').slice(-STDERR_TAIL_MAX_LENGTH)
+
+        resolve({ code, stderrTail })
+      })
+    })
+  }
+
+  protected _toAppImagePath(): string | null {
+    return process.env.APPIMAGE ?? null
   }
 
   protected async _toAvailableUpdateAsset(): Promise<IUpdateAsset> {
@@ -133,10 +254,29 @@ export class UpdateService {
     }
 
     if (updateCheck.asset === null) {
-      throw new Error('No matching update asset for this platform')
+      throw new Error('No matching update asset')
     }
 
     return updateCheck.asset
+  }
+
+  protected _toBusyStatusMessage(params: { status: UpdateDownloadStatus }): string | null {
+    const { status } = params
+
+    switch (status) {
+      case 'downloading': {
+        return 'Update download already in progress'
+      }
+      case 'installing': {
+        return 'Update install already in progress'
+      }
+      case 'restart-required': {
+        return 'Update already installed — restart to finish'
+      }
+      default: {
+        return null
+      }
+    }
   }
 
   protected _toContentLength(params: { response: Response }): number {
@@ -150,6 +290,24 @@ export class UpdateService {
     return contentLength
   }
 
+  protected async _toDebInstallResult(params: {
+    filePath: string
+  }): Promise<{ exitCode: number | null; isSpawnFailed: boolean; stderrTail: string }> {
+    const { filePath } = params
+
+    try {
+      const commandResult = await this._runCommand({ args: ['dpkg', '-i', filePath], command: 'pkexec' })
+
+      return {
+        exitCode: commandResult.code,
+        isSpawnFailed: false,
+        stderrTail: commandResult.stderrTail,
+      }
+    } catch {
+      return { exitCode: null, isSpawnFailed: true, stderrTail: '' }
+    }
+  }
+
   protected _toDownloadFilePath(params: { asset: IUpdateAsset }): string {
     const { asset } = params
     const fileName = basename(asset.name)
@@ -159,6 +317,16 @@ export class UpdateService {
     }
 
     return join(app.getPath('downloads'), fileName)
+  }
+
+  protected _toDownloadTargetFilePath(params: { appImagePath: string | null; asset: IUpdateAsset }): string {
+    const { appImagePath, asset } = params
+
+    if (appImagePath !== null) {
+      return appImagePath
+    }
+
+    return this._toDownloadFilePath({ asset })
   }
 
   protected _toErrorMessage(params: { error: unknown }): string {
@@ -180,6 +348,14 @@ export class UpdateService {
     return headers
   }
 
+  protected _toInstallType(): UpdateInstallType {
+    return updateUtil.toInstallType({
+      appImagePath: this._toAppImagePath(),
+      isPackaged: app.isPackaged,
+      platform: process.platform,
+    })
+  }
+
   protected _toProgressReadable(params: { response: Response }): Readable {
     const { response } = params
 
@@ -194,6 +370,22 @@ export class UpdateService {
     })
 
     return readable
+  }
+
+  protected async _toSelfUpdatableAppImagePath(): Promise<string | null> {
+    const appImagePath = this._toAppImagePath()
+
+    if (appImagePath === null) {
+      return null
+    }
+
+    const isWritable = await this._isWritableAppImageDir({ appImagePath })
+
+    if (!isWritable) {
+      return null
+    }
+
+    return appImagePath
   }
 
   protected _toUpdateAssets(params: { release: IGithubReleaseResponse }): IUpdateAsset[] {
@@ -234,7 +426,7 @@ export class UpdateService {
     const currentVersion = app.getVersion()
     const asset = updateUtil.selectUpdateAsset({
       assets: this._toUpdateAssets({ release }),
-      platform: process.platform,
+      installType: this._toInstallType(),
     })
 
     return {

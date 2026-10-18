@@ -51,6 +51,7 @@ export const TopBar = (props: ITopBarProps): ReactElement => {
     downloadUpdate,
     downloadedFilePath,
     error: updateError,
+    restartForUpdate,
     updateCheck,
     updateFlowState,
   } = useUpdateStore()
@@ -119,7 +120,24 @@ export const TopBar = (props: ITopBarProps): ReactElement => {
       return null
     }
 
-    const isUpdateDisabled = updateFlowState === 'downloading'
+    const isUpdateBusy = updateFlowState === 'downloading' || updateFlowState === 'installing'
+    const isUpdateRestart = updateFlowState === 'restart-required'
+    const resolveUpdateButtonClassName = (): string => {
+      if (isUpdateRestart) {
+        return 'top-bar-update-button top-bar-update-button--restart'
+      }
+
+      return 'top-bar-update-button'
+    }
+    const handleUpdateButtonClick = (): void => {
+      if (isUpdateRestart) {
+        restartForUpdate()
+
+        return
+      }
+
+      downloadUpdate()
+    }
     const updateButtonLabel = updateUtil.toDownloadButtonLabel({
       downloadPercent,
       latestVersion: updateCheck.latestVersion,
@@ -129,14 +147,15 @@ export const TopBar = (props: ITopBarProps): ReactElement => {
       currentVersion: updateCheck.currentVersion,
       downloadedFilePath,
       latestVersion: updateCheck.latestVersion,
+      updateFlowState,
     })
 
     return (
       <>
         <button
-          className="top-bar-update-button"
-          disabled={isUpdateDisabled}
-          onClick={downloadUpdate}
+          className={resolveUpdateButtonClassName()}
+          disabled={isUpdateBusy}
+          onClick={handleUpdateButtonClick}
           title={updateButtonTitle}
           type="button"
         >

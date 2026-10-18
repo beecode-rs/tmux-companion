@@ -128,6 +128,10 @@ export class ApiClient {
     })
   }
 
+  restartUpdate(): Promise<void> {
+    return this._requestVoid({ method: 'POST', path: '/api/updates/restart' })
+  }
+
   switchSession(params: { instanceId: string; name: string }): Promise<ISwitchSessionResponse> {
     return this._requestJson({
       method: 'POST',

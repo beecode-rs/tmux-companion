@@ -378,6 +378,16 @@ export class ApiServer {
     params.res.json(this._updateService.getDownloadStatus())
   }
 
+  protected _handleRestartUpdate(params: { req: Request; res: Response }): void {
+    params.res.status(204)
+    params.res.on('finish', () => {
+      setImmediate(() => {
+        this._updateService.relaunchForUpdate()
+      })
+    })
+    params.res.end()
+  }
+
   protected async _isActiveSession(params: { instance: IInstance; name: string }): Promise<boolean> {
     const clientSessionName = await this._toClientSessionName({ instance: params.instance })
 
@@ -422,6 +432,7 @@ export class ApiServer {
       'No terminal selected',
       'No tmux client attached',
       'No update available',
+      'Update already installed',
       'Update download already in progress',
       'duplicate session',
     ]
@@ -496,6 +507,7 @@ export class ApiServer {
       this._toHandler({ handler: this._handleGetUpdateDownloadStatus.bind(this) }),
     )
     this._app.post('/api/updates/latest/download', this._toHandler({ handler: this._handleDownloadUpdate.bind(this) }))
+    this._app.post('/api/updates/restart', this._toHandler({ handler: this._handleRestartUpdate.bind(this) }))
     this._app.post('/api/connection-tests', this._toHandler({ handler: this._handleTestConnection.bind(this) }))
     this._app.put('/api/settings', this._toHandler({ handler: this._handleUpdateSettings.bind(this) }))
     this._app.put('/api/settings/terminal', this._toHandler({ handler: this._handleUpdateTerminalSetting.bind(this) }))

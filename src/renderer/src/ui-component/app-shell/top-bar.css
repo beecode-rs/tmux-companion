@@ -70,6 +70,17 @@
   cursor: default;
 }
 
+.top-bar-update-button--restart {
+  background: #5fbf87;
+  color: #17171b;
+}
+
+.top-bar-update-button--restart:hover:not(:disabled) {
+  background: #8ad4aa;
+  border-color: #8ad4aa;
+  color: #17171b;
+}
+
 .top-bar-notice {
   color: #d9b26a;
   font-size: 11px;

@@ -56,7 +56,7 @@ methods:
         result: false
   selectUpdateAsset:
     terms:
-      # mac picks the universal dmg from a mixed asset list.
+      # A dmg install (darwin) picks the universal dmg from a mixed asset list.
       - params:
           - assets:
               - name: Tmux-Companion-0.2.0-universal.dmg
@@ -68,12 +68,12 @@ methods:
               - name: tmux-companion_0.2.0_amd64.deb
                 size: 80
                 url: https://example.com/tmux-companion_0.2.0_amd64.deb
-            platform: darwin
+            installType: dmg
         result:
           name: Tmux-Companion-0.2.0-universal.dmg
           size: 100
           url: https://example.com/Tmux-Companion-0.2.0-universal.dmg
-      # linux prefers the AppImage over the deb.
+      # A deb install picks the deb even when an AppImage is published.
       - params:
           - assets:
               - name: Tmux-Companion-0.2.0-universal.dmg
@@ -85,35 +85,105 @@ methods:
               - name: tmux-companion_0.2.0_amd64.deb
                 size: 80
                 url: https://example.com/tmux-companion_0.2.0_amd64.deb
-            platform: linux
-        result:
-          name: Tmux-Companion-0.2.0.AppImage
-          size: 90
-          url: https://example.com/Tmux-Companion-0.2.0.AppImage
-      # linux falls back to the deb when no AppImage is published.
-      - params:
-          - assets:
-              - name: tmux-companion_0.2.0_amd64.deb
-                size: 80
-                url: https://example.com/tmux-companion_0.2.0_amd64.deb
-            platform: linux
+            installType: deb
         result:
           name: tmux-companion_0.2.0_amd64.deb
           size: 80
           url: https://example.com/tmux-companion_0.2.0_amd64.deb
-      # Platforms without a published asset get nothing.
+      # An AppImage install picks the AppImage from the same mixed list.
       - params:
           - assets:
               - name: Tmux-Companion-0.2.0-universal.dmg
                 size: 100
                 url: https://example.com/Tmux-Companion-0.2.0-universal.dmg
-            platform: win32
+              - name: Tmux-Companion-0.2.0.AppImage
+                size: 90
+                url: https://example.com/Tmux-Companion-0.2.0.AppImage
+              - name: tmux-companion_0.2.0_amd64.deb
+                size: 80
+                url: https://example.com/tmux-companion_0.2.0_amd64.deb
+            installType: appImage
+        result:
+          name: Tmux-Companion-0.2.0.AppImage
+          size: 90
+          url: https://example.com/Tmux-Companion-0.2.0.AppImage
+      # A deb install gets nothing when only an AppImage is published.
+      - params:
+          - assets:
+              - name: Tmux-Companion-0.2.0.AppImage
+                size: 90
+                url: https://example.com/Tmux-Companion-0.2.0.AppImage
+            installType: deb
         result: null
-      # An empty asset list gets nothing on any platform.
+      # Dev builds prefer the AppImage and fall back to the deb.
+      - params:
+          - assets:
+              - name: tmux-companion_0.2.0_amd64.deb
+                size: 80
+                url: https://example.com/tmux-companion_0.2.0_amd64.deb
+              - name: Tmux-Companion-0.2.0.AppImage
+                size: 90
+                url: https://example.com/Tmux-Companion-0.2.0.AppImage
+            installType: dev
+        result:
+          name: Tmux-Companion-0.2.0.AppImage
+          size: 90
+          url: https://example.com/Tmux-Companion-0.2.0.AppImage
+      - params:
+          - assets:
+              - name: tmux-companion_0.2.0_amd64.deb
+                size: 80
+                url: https://example.com/tmux-companion_0.2.0_amd64.deb
+            installType: dev
+        result:
+          name: tmux-companion_0.2.0_amd64.deb
+          size: 80
+          url: https://example.com/tmux-companion_0.2.0_amd64.deb
+      # Install types without a published asset get nothing.
+      - params:
+          - assets:
+              - name: Tmux-Companion-0.2.0-universal.dmg
+                size: 100
+                url: https://example.com/Tmux-Companion-0.2.0-universal.dmg
+            installType: unsupported
+        result: null
+      # An empty asset list gets nothing for any install type.
       - params:
           - assets: []
-            platform: darwin
+            installType: deb
         result: null
+  toDebInstallOutcome:
+    terms:
+      # A zero exit code means dpkg installed the package.
+      - params:
+          - exitCode: 0
+            isSpawnFailed: false
+        result: installed
+      # Dismissing the polkit dialog is a deliberate cancel, not a failure.
+      - params:
+          - exitCode: 126
+            isSpawnFailed: false
+        result: fallback
+      # pkexec refusing authorization also falls back to the manual flow.
+      - params:
+          - exitCode: 127
+            isSpawnFailed: false
+        result: fallback
+      # A missing pkexec binary falls back to the manual flow.
+      - params:
+          - exitCode: null
+            isSpawnFailed: true
+        result: fallback
+      # Any other dpkg failure is a real error.
+      - params:
+          - exitCode: 2
+            isSpawnFailed: false
+        result: failed
+      # A process killed by a signal is a real error.
+      - params:
+          - exitCode: null
+            isSpawnFailed: false
+        result: failed
   toDownloadButtonLabel:
     terms:
       # Before anything starts the link names the version it would fetch.
@@ -134,14 +204,77 @@ methods:
             latestVersion: 0.2.0
             updateFlowState: downloading
         result: Downloading… 42%
-      # After the download the installer has already been opened.
+      # Installing covers the pkexec dialog and the dpkg run.
+      - params:
+          - downloadPercent: null
+            latestVersion: 0.2.0
+            updateFlowState: installing
+        result: Installing…
+      # After a successful install the button offers the restart.
+      - params:
+          - downloadPercent: 100
+            latestVersion: 0.2.0
+            updateFlowState: restart-required
+        result: Restart to finish update
+      # After a plain download the installer has already been opened.
       - params:
           - downloadPercent: 100
             latestVersion: 0.2.0
             updateFlowState: downloaded
         result: Opened installer
+  toInstallType:
+    terms:
+      # darwin always maps to dmg, packaged or not.
+      - params:
+          - appImagePath: null
+            isPackaged: true
+            platform: darwin
+        result: dmg
+      - params:
+          - appImagePath: null
+            isPackaged: false
+            platform: darwin
+        result: dmg
+      # An unpackaged linux build keeps the manual dev flow.
+      - params:
+          - appImagePath: null
+            isPackaged: false
+            platform: linux
+        result: dev
+      # A packaged linux app with APPIMAGE set is an AppImage install.
+      - params:
+          - appImagePath: /home/demo/apps/Tmux-Companion.AppImage
+            isPackaged: true
+            platform: linux
+        result: appImage
+      # A packaged linux app without APPIMAGE is a deb install.
+      - params:
+          - appImagePath: null
+            isPackaged: true
+            platform: linux
+        result: deb
+      # Any other platform has no self-update flow.
+      - params:
+          - appImagePath: null
+            isPackaged: true
+            platform: win32
+        result: unsupported
   toUpdateButtonTitle:
     terms:
+      # Once the update is installed the tooltip invites the restart.
+      - params:
+          - currentVersion: 0.1.2
+            downloadedFilePath: /home/demo/Downloads/tmux-companion_0.2.0_amd64.deb
+            latestVersion: 0.2.0
+            updateFlowState: restart-required
+        result: Update installed — restart to finish
+      # While installing the tooltip says so.
+      - params:
+          - currentVersion: 0.1.2
+            downloadedFilePath: null
+            latestVersion: 0.2.0
+            updateFlowState: installing
+        result: Installing the downloaded update…
       # Once downloaded the tooltip points at the saved installer.
       - params:
           - currentVersion: 0.1.2
@@ -154,3 +287,25 @@ methods:
             downloadedFilePath: null
             latestVersion: 0.2.0
         result: Version 0.2.0 available (current 0.1.2)
+  toUpdateFlowState:
+    terms:
+      # A completed download without self-install is the manual opened state.
+      - params:
+          - status: completed
+        result: downloaded
+      - params:
+          - status: downloading
+        result: downloading
+      # A failed download or install resets the button.
+      - params:
+          - status: error
+        result: idle
+      - params:
+          - status: idle
+        result: idle
+      - params:
+          - status: installing
+        result: installing
+      - params:
+          - status: restart-required
+        result: restart-required

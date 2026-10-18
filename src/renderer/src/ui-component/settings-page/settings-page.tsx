@@ -53,6 +53,7 @@ export const SettingsPage = (props: ISettingsPageProps): ReactElement => {
     downloadedFilePath,
     error: updateError,
     refreshUpdateCheck,
+    restartForUpdate,
     updateCheck,
     updateCheckFailure,
     updateFlowState,
@@ -218,15 +219,35 @@ export const SettingsPage = (props: ISettingsPageProps): ReactElement => {
       return null
     }
 
+    const isUpdateBusy = updateFlowState === 'downloading' || updateFlowState === 'installing'
+    const isUpdateRestart = updateFlowState === 'restart-required'
+    const resolveUpdateButtonClassName = (): string => {
+      if (isUpdateRestart) {
+        return 'settings-page-update-button settings-page-update-button--restart'
+      }
+
+      return 'settings-page-update-button'
+    }
+    const handleUpdateButtonClick = (): void => {
+      if (isUpdateRestart) {
+        restartForUpdate()
+
+        return
+      }
+
+      downloadUpdate()
+    }
+
     return (
       <button
-        className="settings-page-update-button"
-        disabled={updateFlowState === 'downloading'}
-        onClick={downloadUpdate}
+        className={resolveUpdateButtonClassName()}
+        disabled={isUpdateBusy}
+        onClick={handleUpdateButtonClick}
         title={updateUtil.toUpdateButtonTitle({
           currentVersion: updateCheck.currentVersion,
           downloadedFilePath,
           latestVersion: updateCheck.latestVersion,
+          updateFlowState,
         })}
         type="button"
       >

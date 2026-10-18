@@ -130,11 +130,14 @@ export type IUpdateCheckResult =
 
 export interface IUpdateDownloadResponse {
   filePath: string
+  status: UpdateDownloadStatus
 }
 
-export type UpdateDownloadStatus = 'completed' | 'downloading' | 'error' | 'idle'
+export type UpdateDownloadStatus = 'completed' | 'downloading' | 'error' | 'idle' | 'installing' | 'restart-required'
 
-export type UpdateFlowState = 'downloaded' | 'downloading' | 'idle'
+export type UpdateFlowState = 'downloaded' | 'downloading' | 'idle' | 'installing' | 'restart-required'
+
+export type UpdateInstallType = 'appImage' | 'deb' | 'dev' | 'dmg' | 'unsupported'
 
 export interface IUpdateDownloadStatusResponse {
   errorMessage?: string

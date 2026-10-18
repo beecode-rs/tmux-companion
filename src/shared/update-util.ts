@@ -1,8 +1,20 @@
-import { type IUpdateAsset, type UpdateFlowState } from '#src/shared/api-model'
+import {
+  type IUpdateAsset,
+  type UpdateDownloadStatus,
+  type UpdateFlowState,
+  type UpdateInstallType,
+} from '#src/shared/api-model'
 
-const PLATFORM_ASSET_SUFFIXES: Record<string, string[]> = {
-  darwin: ['.dmg'],
-  linux: ['.AppImage', '.deb'],
+const DEB_INSTALL_CANCELLED_EXIT_CODE = 126
+
+const DEB_INSTALL_UNAUTHORIZED_EXIT_CODE = 127
+
+const INSTALL_TYPE_ASSET_SUFFIXES: Record<UpdateInstallType, string[]> = {
+  appImage: ['.AppImage'],
+  deb: ['.deb'],
+  dev: ['.AppImage', '.deb'],
+  dmg: ['.dmg'],
+  unsupported: [],
 }
 
 const VERSION_PREFIX_PATTERN = /^v/
@@ -39,9 +51,9 @@ export const updateUtil = {
     return version.replace(VERSION_PREFIX_PATTERN, '')
   },
 
-  selectUpdateAsset: (params: { assets: IUpdateAsset[]; platform: string }): IUpdateAsset | null => {
-    const { assets, platform } = params
-    const preferredSuffixes = PLATFORM_ASSET_SUFFIXES[platform] ?? []
+  selectUpdateAsset: (params: { assets: IUpdateAsset[]; installType: UpdateInstallType }): IUpdateAsset | null => {
+    const { assets, installType } = params
+    const preferredSuffixes = INSTALL_TYPE_ASSET_SUFFIXES[installType]
     const matchedAsset = preferredSuffixes
       .map((suffix) => {
         return assets.find((asset) => {
@@ -53,6 +65,27 @@ export const updateUtil = {
       })
 
     return matchedAsset ?? null
+  },
+
+  toDebInstallOutcome: (params: {
+    exitCode: number | null
+    isSpawnFailed: boolean
+  }): 'fallback' | 'failed' | 'installed' => {
+    const { exitCode, isSpawnFailed } = params
+
+    if (isSpawnFailed) {
+      return 'fallback'
+    }
+
+    if (exitCode === 0) {
+      return 'installed'
+    }
+
+    if (exitCode === DEB_INSTALL_CANCELLED_EXIT_CODE || exitCode === DEB_INSTALL_UNAUTHORIZED_EXIT_CODE) {
+      return 'fallback'
+    }
+
+    return 'failed'
   },
 
   toDownloadButtonLabel: (params: {
@@ -70,6 +103,14 @@ export const updateUtil = {
       return `Downloading… ${String(downloadPercent)}%`
     }
 
+    if (updateFlowState === 'installing') {
+      return 'Installing…'
+    }
+
+    if (updateFlowState === 'restart-required') {
+      return 'Restart to finish update'
+    }
+
     if (updateFlowState === 'downloaded') {
       return 'Opened installer'
     }
@@ -77,17 +118,80 @@ export const updateUtil = {
     return `Download v${latestVersion}`
   },
 
+  toInstallType: (params: {
+    appImagePath: string | null
+    isPackaged: boolean
+    platform: string
+  }): UpdateInstallType => {
+    const { appImagePath, isPackaged, platform } = params
+
+    if (platform === 'darwin') {
+      return 'dmg'
+    }
+
+    if (platform !== 'linux') {
+      return 'unsupported'
+    }
+
+    if (!isPackaged) {
+      return 'dev'
+    }
+
+    if (appImagePath !== null) {
+      return 'appImage'
+    }
+
+    return 'deb'
+  },
+
   toUpdateButtonTitle: (params: {
     currentVersion: string
     downloadedFilePath: string | null
     latestVersion: string
+    updateFlowState?: UpdateFlowState
   }): string => {
-    const { currentVersion, downloadedFilePath, latestVersion } = params
+    const { currentVersion, downloadedFilePath, latestVersion, updateFlowState } = params
+
+    if (updateFlowState === 'restart-required') {
+      return 'Update installed — restart to finish'
+    }
+
+    if (updateFlowState === 'installing') {
+      return 'Installing the downloaded update…'
+    }
 
     if (downloadedFilePath !== null) {
       return `Installer saved to ${downloadedFilePath}`
     }
 
     return `Version ${latestVersion} available (current ${currentVersion})`
+  },
+
+  toUpdateFlowState: (params: { status: UpdateDownloadStatus }): UpdateFlowState => {
+    const { status } = params
+
+    switch (status) {
+      case 'completed': {
+        return 'downloaded'
+      }
+      case 'downloading': {
+        return 'downloading'
+      }
+      case 'error': {
+        return 'idle'
+      }
+      case 'idle': {
+        return 'idle'
+      }
+      case 'installing': {
+        return 'installing'
+      }
+      case 'restart-required': {
+        return 'restart-required'
+      }
+      default: {
+        throw new Error(`Unsupported update download status: ${String(status)}`)
+      }
+    }
   },
 }
