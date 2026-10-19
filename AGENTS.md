@@ -9,7 +9,7 @@ Run from the repo root; a task is verified only when all of these pass:
 - `pnpm test:contract` — vitest contract tests from `*.contract.yaml` plus colocated `*.test.ts`
 - `pnpm build` — electron-vite production build
 - `pnpm dev` — run the app; temporary main-process smoke harnesses are wired behind `TMUX_COMPANION_SMOKE=1` and must be removed before the final gate
-- `pnpm pack:dir` / `pnpm dist:mac` — packaged builds (current-arch app dir / universal dmg)
+- `pnpm pack:dir` / `pnpm dist-mac` — packaged builds (current-arch app dir / universal dmg)
 
 ## Packaging notes
 

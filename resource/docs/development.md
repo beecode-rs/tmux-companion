@@ -23,7 +23,7 @@ pnpm dev        # run the app in development
 - `pnpm build` — build main/preload/renderer into `out/`
 - `pnpm start` — run the built app
 - `pnpm pack:dir` — unpacked build into `dist/` for a quick local smoke test, packaged as `Tmux Companion (dev).app` to distinguish it from release builds
-- `pnpm dist:mac` / `pnpm dist:linux` — build installers into `dist/` (universal dmg; AppImage + deb)
+- `pnpm dist-mac` / `pnpm dist-linux` — build installers into `dist/` (universal dmg; AppImage + deb)
 
 The full command list lives in [scripts.md](scripts.md).
 
