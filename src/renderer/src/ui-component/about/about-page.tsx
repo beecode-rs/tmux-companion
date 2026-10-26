@@ -12,6 +12,8 @@ const APP_TITLE = appTitleUtil.resolve({ isDev: import.meta.env.DEV })
 
 const BEECODE_WEBSITE_URL = 'https://beecode.rs'
 
+const GITHUB_REPOSITORY_URL = 'https://github.com/beecode-rs/tmux-companion'
+
 const WHAT_IT_DOES_ITEMS = [
   'Instances connect to a machine — local or over SSH — and list every tmux session on it, ready to switch, rename, or kill.',
   'An embedded terminal that runs your real shell inside your real tmux — no wrapper config, nothing rewritten.',
@@ -41,6 +43,10 @@ export const AboutPage = (): ReactElement => {
     void window.tmuxCompanion.openExternal(BEECODE_WEBSITE_URL)
   }
 
+  const handleOpenGitHubRepository = (): void => {
+    void window.tmuxCompanion.openExternal(GITHUB_REPOSITORY_URL)
+  }
+
   return (
     <div className="about-page">
       <header className="about-page-header">
@@ -56,6 +62,12 @@ export const AboutPage = (): ReactElement => {
         <div className="about-page-info-row">
           <span className="about-page-info-label">Electron</span>
           <span className="about-page-info-value">{window.tmuxCompanion.electronVersion}</span>
+        </div>
+        <div className="about-page-info-row">
+          <span className="about-page-info-label">GitHub</span>
+          <button className="about-page-info-link" onClick={handleOpenGitHubRepository} type="button">
+            github.com/beecode-rs/tmux-companion
+          </button>
         </div>
       </section>
       <section className="about-page-section">

@@ -24,6 +24,8 @@ const TRAY_POLL_INTERVAL_MS = 5000
 
 export type ITrayActivateSessionCallback = (params: { instanceId: string }) => void
 
+export type ITrayFocusWindowCallback = () => void
+
 export type ITraySessionSwitchedCallback = (params: { instanceId: string }) => void
 
 interface ITrayInstanceSessions {
@@ -37,6 +39,8 @@ export class TrayService {
   protected readonly _controlModeService: ControlModeService
 
   protected readonly _onActivateSession: ITrayActivateSessionCallback
+
+  protected readonly _onFocusWindow: ITrayFocusWindowCallback
 
   protected readonly _onSessionSwitched: ITraySessionSwitchedCallback
 
@@ -64,6 +68,7 @@ export class TrayService {
     appTitle: string
     controlModeService: ControlModeService
     onActivateSession: ITrayActivateSessionCallback
+    onFocusWindow: ITrayFocusWindowCallback
     onSessionSwitched: ITraySessionSwitchedCallback
     ptyService: PtyService
     settingsRepo: SettingsRepo
@@ -72,6 +77,7 @@ export class TrayService {
     this._appTitle = params.appTitle
     this._controlModeService = params.controlModeService
     this._onActivateSession = params.onActivateSession
+    this._onFocusWindow = params.onFocusWindow
     this._onSessionSwitched = params.onSessionSwitched
     this._ptyService = params.ptyService
     this._settingsRepo = params.settingsRepo
@@ -165,7 +171,7 @@ export class TrayService {
           'New Session',
         ]
       },
-      ['Quit'],
+      ['Focus Window', 'Quit'],
     )
   }
 
@@ -288,6 +294,13 @@ export class TrayService {
 
   protected _toMenuTemplate(params: { instanceSessions: ITrayInstanceSessions[] }): MenuItemConstructorOptions[] {
     return [
+      {
+        click: () => {
+          this._onFocusWindow()
+        },
+        label: 'Focus Window',
+      },
+      { type: 'separator' },
       ...params.instanceSessions.map((entry) => {
         return this._toInstanceMenuItem({ instanceSessions: entry })
       }),

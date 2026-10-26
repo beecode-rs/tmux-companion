@@ -18,7 +18,7 @@ interface ISettingsPageProps {
 
 const APP_TITLE = appTitleUtil.resolve({ isDev: import.meta.env.DEV })
 
-const HOTKEY_DEFAULT_HINT = 'default: CommandOrControl+Alt+T'
+const HOTKEY_DEFAULT_HINT = 'default: Ctrl/Cmd+Alt+T'
 
 const resolveVersionStatusText = (params: { isUpdateAvailable: boolean; latestVersion: string }): string => {
   if (params.isUpdateAvailable) {
@@ -305,12 +305,15 @@ export const SettingsPage = (props: ISettingsPageProps): ReactElement => {
       </section>
       <section className="settings-page-section">
         <h2 className="settings-page-section-title">Global hotkey</h2>
+        <div className="settings-page-hint">
+          Keyboard shortcut that shows or hides the app window from anywhere, even when the app is not focused.
+        </div>
         <label className="settings-page-toggle">
           <input checked={draftSettings.hotkeyEnabled} onChange={handleToggleHotkeyEnabled} type="checkbox" />
-          <span>Enable global hotkey</span>
+          <span>Show/hide the app window with the global hotkey</span>
         </label>
         <label className="settings-page-field">
-          <span className="settings-page-field-label">Accelerator ({HOTKEY_DEFAULT_HINT})</span>
+          <span className="settings-page-field-label">Key combination ({HOTKEY_DEFAULT_HINT})</span>
           <input
             className="settings-page-input"
             onChange={(event) => {

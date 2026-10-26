@@ -62,6 +62,19 @@
   font-size: 13px;
 }
 
+.about-page-info-link {
+  background: transparent;
+  border: none;
+  color: #5fbf87;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+}
+
+.about-page-info-link:hover {
+  text-decoration: underline;
+}
+
 .about-page-section-title {
   color: #f0f0f2;
   font-size: 14px;

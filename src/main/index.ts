@@ -59,6 +59,10 @@ const ensureMainWindow = (params: { settingsRepo: SettingsRepo }): BrowserWindow
   const existingWindow = BrowserWindow.getAllWindows()[0]
 
   if (existingWindow !== undefined) {
+    if (existingWindow.isMinimized()) {
+      existingWindow.restore()
+    }
+
     app.focus({ steal: true })
     existingWindow.show()
     existingWindow.focus()
@@ -278,6 +282,9 @@ const bootstrapApp = async (): Promise<void> => {
         windowState: { ...windowState, selectedInstanceId: params.instanceId },
       })
       broadcastSelectionChanged({ instanceId: params.instanceId })
+      ensureMainWindow({ settingsRepo })
+    },
+    onFocusWindow: () => {
       ensureMainWindow({ settingsRepo })
     },
     onSessionSwitched: (params: { instanceId: string }) => {
