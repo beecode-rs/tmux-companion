@@ -7,7 +7,9 @@ import { type ReactElement, useCallback, useEffect, useRef, useState } from 'rea
 import { ApiClient } from '#src/renderer/src/business/service/api-client'
 import { type InstanceTerminalRequest, useInstances } from '#src/renderer/src/business/service/instances-store'
 import { terminalA11ySelectionUtil } from '#src/renderer/src/ui-component/terminal-view/terminal-a11y-selection-util'
+import { terminalGlyphUtil } from '#src/renderer/src/ui-component/terminal-view/terminal-glyph-util'
 import { TerminalScrollbar } from '#src/renderer/src/ui-component/terminal-view/terminal-scrollbar'
+import { terminalUnicodeProvider } from '#src/renderer/src/ui-component/terminal-view/terminal-unicode-provider'
 import { type IGetThemeResponse } from '#src/shared/api-model'
 import { type TerminalMode } from '#src/shared/terminal-mode-model'
 import {
@@ -203,7 +205,9 @@ const connectTerminalSession = (params: {
 
   webSocket.onmessage = (event: MessageEvent<string | ArrayBuffer>) => {
     if (typeof event.data === 'string') {
-      params.session.terminal.write(event.data)
+      // Lone regional indicator letters get a narrow ASCII substitute (see
+      // terminal-glyph-util); everything else passes through untouched.
+      params.session.terminal.write(terminalGlyphUtil.toRenderableText(event.data))
 
       return
     }
@@ -645,7 +649,19 @@ const toTerminalSession = (params: {
 }): ITerminalSession => {
   const element = document.createElement('div')
   const fitAddon = new FitAddon()
-  const terminal = new Terminal({ scrollback: TERMINAL_SCROLLBACK, theme: { background: TERMINAL_BACKGROUND } })
+  const terminal = new Terminal({
+    // terminal.unicode (the custom Unicode provider registration below) is
+    // proposed API and throws on access without this flag.
+    allowProposedApi: true,
+    scrollback: TERMINAL_SCROLLBACK,
+    theme: { background: TERMINAL_BACKGROUND },
+  })
+  // xterm.js measures cells with its built-in Unicode 6 widths, but tmux lays
+  // out its grid with modern Unicode (utf8proc): emoji get two columns there
+  // and one here, so the DOM renderer squeezed them into a single cell and
+  // the next cell painted over their right half.
+  terminal.unicode.register(terminalUnicodeProvider)
+  terminal.unicode.activeVersion = terminalUnicodeProvider.version
   const session: ITerminalSession = {
     element,
     fitAddon,

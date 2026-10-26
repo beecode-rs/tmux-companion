@@ -1,0 +1,146 @@
+subject: terminalUnicodeProvider
+module: ./terminal-unicode-provider.js
+subjectType: function
+methods:
+  wcwidth:
+    terms:
+      # The checkmark emoji from the report (U+2705): tmux gives it two cells.
+      - params: [0x2705]
+        result: 2
+      # Plane-1 emoji (grinning face): two cells.
+      - params: [0x1f600]
+        result: 2
+      # CJK ideograph: two cells.
+      - params: [0x4e2d]
+        result: 2
+      # Regional indicator (flag letter): tmux gives each one cell.
+      - params: [0x1f1f8]
+        result: 1
+      # East Asian Ambiguous horizontal ellipsis: tmux default is narrow.
+      - params: [0x2026]
+        result: 1
+      # Plain ASCII.
+      - params: [0x41]
+        result: 1
+      # Zero-width joiner and variation selectors take no cell.
+      - params: [0x200d]
+        result: 0
+      - params: [0xfe0f]
+        result: 0
+      # Combining acute accent takes no cell.
+      - params: [0x301]
+        result: 0
+      # Katakana combining marks stay zero-width even though their block is wide.
+      - params: [0x3099]
+        result: 0
+      # Control characters take no cell.
+      - params: [0x09]
+        result: 0
+      - params: [0x85]
+        result: 0
+  charProperties:
+    terms:
+      # Standalone wide emoji: width 2, no join (2 << 1).
+      - params: [0x2705, 0]
+        result: 4
+      # Plain letter: width 1, no join (1 << 1).
+      - params: [0x41, 0]
+        result: 2
+      # ZWJ after a wide emoji joins it and flags the cluster (state 1, width 2,
+      # join: (1 << 3) | (2 << 1) | 1).
+      - params: [0x200d, 4]
+        result: 13
+      # Emoji after a ZWJ joins the cluster without adding columns (width 2,
+      # join: (2 << 1) | 1).
+      - params: [0x1f4bb, 13]
+        result: 5
+      # VS16 after a single-cell base promotes the cell to width 2.
+      - params: [0xfe0f, 2]
+        result: 5
+      # Combining mark after a single-cell base joins at the base width.
+      - params: [0x301, 2]
+        result: 3
+      # A plain letter after a finished cluster starts a new cell.
+      - params: [0x44, 5]
+        result: 2
+      # Lone regional indicator: one column, flagged as pair start (state 2,
+      # width 1: (2 << 3) | (1 << 1)).
+      - params: [0x1f1f8, 0]
+        result: 18
+      # Second indicator of a pair joins the first into a two-column flag
+      # cell (width 2, join: (2 << 1) | 1).
+      - params: [0x1f1e6, 18]
+        result: 5
+      # A third indicator after a completed pair starts a new cell instead of
+      # extending the flag (non-overlapping pairing).
+      - params: [0x1f1f8, 5]
+        result: 18
+      # A plain letter after a lone indicator starts a new cell.
+      - params: [0x44, 18]
+        result: 2
+  toStringWidth:
+    terms:
+      # "A\u2705B" - tmux cursor landed on column 4.
+      - params:
+          - [0x41, 0x2705, 0x42]
+        result: 4
+      # "C\u{1F9D1}\u200D\u{1F4BB}D" (technologist ZWJ sequence) - the whole
+      # cluster takes the width of its first emoji: tmux cursor on column 4.
+      - params:
+          - [0x43, 0x1f9d1, 0x200d, 0x1f4bb, 0x44]
+        result: 4
+      # "E\u26A0\uFE0FF" (warning sign with VS16) - emoji presentation is two
+      # cells: tmux cursor on column 4.
+      - params:
+          - [0x45, 0x26a0, 0xfe0f, 0x46]
+        result: 4
+      # "G\u{1F1F8}\u{1F1E6}H" (regional indicator pair) - the pair joins into
+      # a single two-column flag cell: tmux cursor on column 4.
+      - params:
+          - [0x47, 0x1f1f8, 0x1f1e6, 0x48]
+        result: 4
+      # An odd run of indicators keeps the non-overlapping pairing parity
+      # (pair + lone): tmux cursor on column 5 for "G" + 3 indicators + "H".
+      - params:
+          - [0x47, 0x1f1f8, 0x1f1e6, 0x1f1f8, 0x48]
+        result: 5
+      # Two consecutive pairs span four columns: tmux cursor on column 6.
+      - params:
+          - [0x47, 0x1f1f8, 0x1f1e6, 0x1f1f8, 0x1f1e6, 0x48]
+        result: 6
+      # A lone indicator takes one column: tmux cursor on column 3.
+      - params:
+          - [0x47, 0x1f1f8, 0x48]
+        result: 3
+      # "abcd" sanity check.
+      - params:
+          - [0x61, 0x62, 0x63, 0x64]
+        result: 4
+      # "I\u4E2DJ" (CJK ideograph).
+      - params:
+          - [0x49, 0x4e2d, 0x4a]
+        result: 4
+      # "K\u2026L" (horizontal ellipsis is narrow): tmux cursor on column 3.
+      - params:
+          - [0x4b, 0x2026, 0x4c]
+        result: 3
+      # "e" + combining acute stays a single cell.
+      - params:
+          - [0x65, 0x301]
+        result: 1
+      # Keycap sequence "1\uFE0F\u20E3": two cells like tmux.
+      - params:
+          - [0x31, 0xfe0f, 0x20e3]
+        result: 2
+      # A run of three standalone emoji spans six cells.
+      - params:
+          - [0x2705, 0x2705, 0x2705]
+        result: 6
+      # A leading joinable codepoint alone claims no cell.
+      - params:
+          - [0x200d]
+        result: 0
+      # Empty input.
+      - params:
+          - []
+        result: 0

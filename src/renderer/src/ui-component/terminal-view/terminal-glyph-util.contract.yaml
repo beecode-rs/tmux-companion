@@ -1,0 +1,42 @@
+subject: terminalGlyphUtil
+module: ./terminal-glyph-util.js
+subjectType: function
+methods:
+  toRenderableText:
+    terms:
+      # A pair passes through untouched so the unicode provider can shape it
+      # into a single flag glyph.
+      - params: ['A🇸🇦B']
+        result: 'A🇸🇦B'
+      # An odd run keeps the pair and substitutes the lone remainder.
+      - params: ['A🇸🇦🇸B']
+        result: 'A🇸🇦SB'
+      # Two consecutive pairs are fully paired.
+      - params: ['A🇸🇦🇸🇦B']
+        result: 'A🇸🇦🇸🇦B'
+      # A lone indicator surrounded by text becomes its ASCII letter.
+      - params: ['A🇸B']
+        result: 'ASB'
+      # Neighboring lone indicators substitute independently.
+      - params: ['x🇸y🇦z']
+        result: 'xSyAz'
+      # A lone indicator at the very end of the text still substitutes.
+      - params: ['A🇸']
+        result: 'AS'
+      # A pair at the very end passes through.
+      - params: ['A🇸🇦']
+        result: 'A🇸🇦'
+      # Every indicator letter maps to its own ASCII letter.
+      - params: ['🇦🇿']
+        result: '🇦🇿'
+      - params: ['🇦🇿🇦']
+        result: '🇦🇿A'
+      # Plain text and other wide emoji are untouched.
+      - params: ['typecheck ✅ done 🚀']
+        result: 'typecheck ✅ done 🚀'
+      # Combining sequences are untouched.
+      - params: ['café']
+        result: 'café'
+      # Empty text stays empty.
+      - params: ['']
+        result: ''
