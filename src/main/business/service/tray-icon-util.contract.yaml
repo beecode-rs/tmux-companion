@@ -2,25 +2,25 @@ subject: trayIconUtil
 module: ./tray-icon-util.js
 subjectType: function
 methods:
-  toThemedBitmap:
+  toColoredBitmap:
     terms:
-      # Dark theme: drawn pixels become white so the glyph stays visible on a dark tray; transparent pixels are untouched.
+      # Drawn pixels take the requested color; transparent pixels are untouched.
       - params:
           - bitmap: [0, 0, 0, 255, 0, 0, 0, 0]
-            isDarkColors: true
-        result: [255, 255, 255, 255, 0, 0, 0, 0]
-      # Light theme: the dark glyph is kept exactly as provided.
-      - params:
-          - bitmap: [0, 0, 0, 255, 0, 0, 0, 0]
-            isDarkColors: false
-        result: [0, 0, 0, 255, 0, 0, 0, 0]
+            color: [34, 197, 94]
+        result: [34, 197, 94, 255, 0, 0, 0, 0]
       # Any alpha above zero marks a drawn pixel, whatever its original color.
       - params:
           - bitmap: [10, 20, 30, 255]
-            isDarkColors: true
+            color: [255, 255, 255]
         result: [255, 255, 255, 255]
-      # Partially transparent edge pixels are tinted too, keeping the glyph silhouette.
+      # Partially transparent edge pixels are tinted too, keeping the glyph silhouette and original alpha.
       - params:
           - bitmap: [0, 0, 0, 128, 10, 20, 30, 200]
-            isDarkColors: true
-        result: [255, 255, 255, 128, 255, 255, 255, 200]
+            color: [34, 197, 94]
+        result: [34, 197, 94, 128, 34, 197, 94, 200]
+      # Fully transparent pixels keep their original channel values.
+      - params:
+          - bitmap: [10, 20, 30, 0]
+            color: [34, 197, 94]
+        result: [10, 20, 30, 0]

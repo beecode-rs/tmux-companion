@@ -43,7 +43,7 @@ The titles link to each feature's section in [resource/docs/features.md](resourc
 
 ## Features
 
-- **Auto-numbered sessions** — new sessions get the next free plain number (`s01`, `s02`, …) and never collide with a session another tool already created.
+- **Auto-numbered sessions** — new sessions get the next free plain number (`s01`, `s02`, …) and never collide with a session another tool already created. Each new session opens in the machine's login-user home directory.
 - **Cloning** — duplicate a session into a fresh one that starts in the same working directory as the source.
 - **Embedded terminal** — an xterm.js terminal runs your real shell inside your real tmux, without touching `~/.tmux.conf` or your shell rc.
 - **Ghostty theme import** — optionally import your Ghostty theme so the embedded terminal matches your standalone terminal.

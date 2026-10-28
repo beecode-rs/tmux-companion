@@ -1,10 +1,8 @@
-export const trayIconUtil = {
-  toThemedBitmap(params: { bitmap: number[]; isDarkColors: boolean }): number[] {
-    const { bitmap, isDarkColors } = params
+export type ITrayIconColor = readonly [number, number, number]
 
-    if (!isDarkColors) {
-      return bitmap
-    }
+export const trayIconUtil = {
+  toColoredBitmap(params: { bitmap: number[]; color: ITrayIconColor }): number[] {
+    const { bitmap, color } = params
 
     return bitmap.map((value, index) => {
       const isAlphaChannel = index % 4 === 3
@@ -19,7 +17,9 @@ export const trayIconUtil = {
         return value
       }
 
-      return 255
+      const colorChannels = [color[0], color[1], color[2]]
+
+      return colorChannels[index % 4] ?? value
     })
   },
 }

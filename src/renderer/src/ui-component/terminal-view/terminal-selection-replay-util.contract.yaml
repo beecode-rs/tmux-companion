@@ -1,0 +1,18 @@
+subject: terminalSelectionReplayUtil
+module: ./terminal-selection-replay-util.js
+subjectType: function
+methods:
+  toForcedSelectionModifiers:
+    terms:
+      # macOS forces selection with Option (paired with macOptionClickForcesSelection).
+      - params:
+          - isMac: true
+        result:
+          altKey: true
+          shiftKey: false
+      # Other platforms force selection with Shift.
+      - params:
+          - isMac: false
+        result:
+          altKey: false
+          shiftKey: true

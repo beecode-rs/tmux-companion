@@ -35,14 +35,16 @@ export class TmuxService {
   }
 
   async createSession(params: { instance: IInstance; name?: string; startPath?: string }): Promise<string> {
-    const name = await this._toName({ instance: params.instance, name: params.name })
-    const result = await this._toExecutor(params.instance).run(
-      this._toNewSessionArgs({ name, startPath: params.startPath }),
+    const { instance, name, startPath } = params
+    const resolvedName = await this._toName({ instance, name })
+    const resolvedStartPath = startPath ?? (await this._toHomeStartPathIfExists({ instance }))
+    const result = await this._toExecutor(instance).run(
+      this._toNewSessionArgs({ name: resolvedName, startPath: resolvedStartPath }),
     )
 
     this._assertSuccess({ result })
 
-    return name
+    return resolvedName
   }
 
   async enterCopyMode(params: { clientTty: string; instance: IInstance }): Promise<void> {
@@ -317,6 +319,20 @@ export class TmuxService {
 
   protected _toExecutor(instance: IInstance): IExecutor {
     return executorFactory.create({ instance })
+  }
+
+  protected async _toHomeStartPathIfExists(params: { instance: IInstance }): Promise<string | undefined> {
+    try {
+      const homePath = (await this._toExecutor(params.instance).readHomePath()).trim()
+
+      if (homePath === '') {
+        return undefined
+      }
+
+      return homePath
+    } catch {
+      return undefined
+    }
   }
 
   protected _toNewSessionArgs(params: { name: string; startPath?: string }): string[] {

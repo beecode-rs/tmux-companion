@@ -14,6 +14,7 @@ The detail behind the README's feature list — how sessions are named and numbe
 - Adding an SSH instance takes a label, host, user, port, and an optional identity file. Aliases and keys from your `~/.ssh/config` work as-is.
 - Each instance lists every tmux session on that machine — including sessions created by other tools, such as [Relay](https://github.com/beecode-rs/relay). Nothing is filtered, renamed, copied, or hidden.
 - From the sidebar you can create, clone, rename, kill, and switch sessions. The instance menu also connects, refreshes the session list, edits, and removes instances.
+- A new session starts in that machine's login-user home directory — the same place an SSH login shell opens in. tmux would otherwise use its server's working directory, which for a server started by the GUI app is `/`; if the home directory cannot be resolved (for example an unreachable SSH instance), that tmux default is used. A clone keeps the source session's working directory.
 
 ## Session naming and numbering
 

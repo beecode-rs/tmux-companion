@@ -4,13 +4,17 @@ import { type SettingsRepo } from '#src/main/business/repo/settings-repo'
 import { type ControlModeService } from '#src/main/business/service/control-mode-service'
 import { type PtyService } from '#src/main/business/service/pty-service'
 import { type TmuxService } from '#src/main/business/service/tmux-service'
-import { trayIconUtil } from '#src/main/business/service/tray-icon-util'
+import { type ITrayIconColor, trayIconUtil } from '#src/main/business/service/tray-icon-util'
 import { type IInstance } from '#src/shared/instance-model'
 import { type ISessionInfo } from '#src/shared/session-model'
 
 const ACTIVATE_MAX_ATTEMPTS = 3
 
 const ACTIVATE_RETRY_DELAY_MS = 600
+
+const TRAY_ICON_DARK_THEME_COLOR_RGB: ITrayIconColor = [255, 255, 255]
+
+const TRAY_ICON_DEV_COLOR_RGB: ITrayIconColor = [34, 197, 94]
 
 const TRAY_ICON_PNG_16_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAHElEQVR4nGNgGHbg/6gh1DeEIgOGmeb/WPBwAQC1rw7yUlwt0AAAAABJRU5ErkJggg=='
@@ -37,6 +41,8 @@ export class TrayService {
   protected readonly _appTitle: string
 
   protected readonly _controlModeService: ControlModeService
+
+  protected readonly _isDev: boolean
 
   protected readonly _onActivateSession: ITrayActivateSessionCallback
 
@@ -67,6 +73,7 @@ export class TrayService {
   constructor(params: {
     appTitle: string
     controlModeService: ControlModeService
+    isDev: boolean
     onActivateSession: ITrayActivateSessionCallback
     onFocusWindow: ITrayFocusWindowCallback
     onSessionSwitched: ITraySessionSwitchedCallback
@@ -76,6 +83,7 @@ export class TrayService {
   }) {
     this._appTitle = params.appTitle
     this._controlModeService = params.controlModeService
+    this._isDev = params.isDev
     this._onActivateSession = params.onActivateSession
     this._onFocusWindow = params.onFocusWindow
     this._onSessionSwitched = params.onSessionSwitched
@@ -366,6 +374,11 @@ export class TrayService {
     const image = nativeImage.createFromBuffer(Buffer.from(TRAY_ICON_PNG_16_BASE64, 'base64'))
 
     image.addRepresentation({ buffer: Buffer.from(TRAY_ICON_PNG_32_BASE64, 'base64'), scaleFactor: 2 })
+
+    if (this._isDev) {
+      return this._toColoredImage({ color: TRAY_ICON_DEV_COLOR_RGB, image })
+    }
+
     image.setTemplateImage(true)
 
     if (!nativeTheme.shouldUseDarkColors) {
@@ -375,24 +388,32 @@ export class TrayService {
     return this._toDarkThemeImage({ image })
   }
 
-  protected _toDarkThemeImage(params: { image: NativeImage }): NativeImage {
-    const { width, height } = params.image.getSize()
-    const bitmapScale1 = trayIconUtil.toThemedBitmap({
-      bitmap: Array.from(params.image.toBitmap()),
-      isDarkColors: true,
+  protected _toColoredImage(params: { color: ITrayIconColor; image: NativeImage }): NativeImage {
+    const { color, image } = params
+    const { width, height } = image.getSize()
+    const bitmapScale1 = trayIconUtil.toColoredBitmap({
+      bitmap: Array.from(image.toBitmap()),
+      color,
     })
-    const bitmapScale2 = trayIconUtil.toThemedBitmap({
-      bitmap: Array.from(params.image.toBitmap({ scaleFactor: 2 })),
-      isDarkColors: true,
+    const bitmapScale2 = trayIconUtil.toColoredBitmap({
+      bitmap: Array.from(image.toBitmap({ scaleFactor: 2 })),
+      color,
     })
-    const themedImage = nativeImage.createFromBuffer(Buffer.from(bitmapScale1), { height, width })
+    const coloredImage = nativeImage.createFromBuffer(Buffer.from(bitmapScale1), { height, width })
 
-    themedImage.addRepresentation({
+    coloredImage.addRepresentation({
       buffer: Buffer.from(bitmapScale2),
       height: height * 2,
       scaleFactor: 2,
       width: width * 2,
     })
+
+    return coloredImage
+  }
+
+  protected _toDarkThemeImage(params: { image: NativeImage }): NativeImage {
+    const themedImage = this._toColoredImage({ color: TRAY_ICON_DARK_THEME_COLOR_RGB, image: params.image })
+
     themedImage.setTemplateImage(true)
 
     return themedImage

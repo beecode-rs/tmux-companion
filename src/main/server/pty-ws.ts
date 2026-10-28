@@ -110,7 +110,7 @@ export class PtyWsServer {
 
     if (copySelectionFrame !== null) {
       void this._ptyService
-        .copySelection({ instanceId: params.instanceId, mode: params.mode })
+        .copySelection({ instanceId: params.instanceId, mode: params.mode, text: copySelectionFrame.text })
         .then((text) => {
           if (text !== null) {
             this._sendSelectionText({ text, ws: params.ws })
@@ -250,15 +250,25 @@ export class PtyWsServer {
 
     const keys = Object.keys(parsed).sort()
 
-    if (keys.length !== 1 || keys[0] !== 'type') {
-      return null
+    if (keys.length === 1 && keys[0] === 'type') {
+      if ((parsed as Record<string, unknown>)['type'] !== 'copy-selection') {
+        return null
+      }
+
+      return { type: 'copy-selection' }
     }
 
-    if ((parsed as Record<string, unknown>)['type'] !== 'copy-selection') {
-      return null
+    if (keys.length === 2 && keys[0] === 'text' && keys[1] === 'type') {
+      const record = parsed as Record<string, unknown>
+
+      if (record['type'] !== 'copy-selection' || typeof record['text'] !== 'string') {
+        return null
+      }
+
+      return { text: record['text'], type: 'copy-selection' }
     }
 
-    return { type: 'copy-selection' }
+    return null
   }
 
   protected _toErrorMessage(params: { error: unknown }): string {

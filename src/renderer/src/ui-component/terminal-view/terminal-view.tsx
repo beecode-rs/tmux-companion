@@ -9,6 +9,10 @@ import { type InstanceTerminalRequest, useInstances } from '#src/renderer/src/bu
 import { terminalA11ySelectionUtil } from '#src/renderer/src/ui-component/terminal-view/terminal-a11y-selection-util'
 import { terminalGlyphUtil } from '#src/renderer/src/ui-component/terminal-view/terminal-glyph-util'
 import { TerminalScrollbar } from '#src/renderer/src/ui-component/terminal-view/terminal-scrollbar'
+import {
+  type ISelectionReplayPoint,
+  terminalSelectionReplayUtil,
+} from '#src/renderer/src/ui-component/terminal-view/terminal-selection-replay-util'
 import { terminalUnicodeProvider } from '#src/renderer/src/ui-component/terminal-view/terminal-unicode-provider'
 import { type IGetThemeResponse } from '#src/shared/api-model'
 import { type TerminalMode } from '#src/shared/terminal-mode-model'
@@ -158,6 +162,34 @@ const clearA11ySelectionMirror = (params: { session: ITerminalSession }): void =
   }
 
   terminalA11ySelectionUtil.clearSelectionMirror({ textarea })
+}
+
+const replayPaneSwallowedSelection = (params: {
+  from: ISelectionReplayPoint
+  session: ITerminalSession
+  to: ISelectionReplayPoint
+}): string | undefined => {
+  // Panes that enable mouse reporting (opencode, fullscreen claude code)
+  // consume drags themselves: neither xterm nor tmux ends up with a
+  // selection, so the a11y mirror stays empty and assistive tech reads
+  // whatever else the app exposes (the sidebar). Re-running the drag as
+  // xterm's modifier-forced gesture creates a real selection after the
+  // fact; onSelectionChange mirrors it again on the next frame.
+  terminalSelectionReplayUtil.replayForcedSelection({
+    from: params.from,
+    terminal: params.session.terminal,
+    to: params.to,
+  })
+
+  const selection = params.session.terminal.getSelection()
+
+  if (selection === '') {
+    return undefined
+  }
+
+  applyA11ySelectionMirror({ session: params.session, text: selection })
+
+  return selection
 }
 
 const applyScrollStateFrame = (params: {
@@ -431,7 +463,7 @@ const scheduleTerminalFit = (params: { session: ITerminalSession }): void => {
   })
 }
 
-const sendCopySelectionFrame = (params: { session: ITerminalSession }): void => {
+const sendCopySelectionFrame = (params: { session: ITerminalSession; text?: string }): void => {
   if (params.session.mode !== 'tmux') {
     return
   }
@@ -446,7 +478,7 @@ const sendCopySelectionFrame = (params: { session: ITerminalSession }): void => 
     return
   }
 
-  webSocket.send(JSON.stringify({ type: 'copy-selection' }))
+  webSocket.send(JSON.stringify({ text: params.text, type: 'copy-selection' }))
 }
 
 const sendGetScrollStateFrame = (params: { session: ITerminalSession }): void => {
@@ -653,6 +685,17 @@ const toTerminalSession = (params: {
     // terminal.unicode (the custom Unicode provider registration below) is
     // proposed API and throws on access without this flag.
     allowProposedApi: true,
+    // Option+click would otherwise move the cursor (a stray sequence into the
+    // pane) whenever a forced-selection gesture covers a single cell;
+    // selection is the only Option behavior we want.
+    altClickMovesCursor: false,
+    // tmux always enables mouse reporting on its clients, so xterm disables its
+    // selection service and forwards every drag into tmux. Panes that grab the
+    // mouse themselves (opencode, claude code) swallow those drags, leaving no
+    // selection anywhere for assistive tech to read. Option-drag (Shift-drag
+    // off-mac) forces xterm's own selection even in mouse mode, which feeds
+    // the a11y selection mirror.
+    macOptionClickForcesSelection: true,
     scrollback: TERMINAL_SCROLLBACK,
     theme: { background: TERMINAL_BACKGROUND },
   })
@@ -913,6 +956,13 @@ export const TerminalView = (props: {
       }
 
       clearA11ySelectionMirror({ session })
+
+      // Plain presses bypass the (mouse-mode-disabled) selection service, so
+      // a replayed selection would linger until the next drag.
+      if (session.terminal.hasSelection()) {
+        session.terminal.clearSelection()
+      }
+
       selectionPressPointRef.current = { x: event.clientX, y: event.clientY }
     }
 
@@ -933,6 +983,7 @@ export const TerminalView = (props: {
 
     const handleSelectionRelease = (event: MouseEvent): void => {
       const hasSelectionDragEnded = isSelectionDragActiveRef.current
+      const pressPoint = selectionPressPointRef.current
 
       selectionPressPointRef.current = null
       isSelectionDragActiveRef.current = false
@@ -941,7 +992,26 @@ export const TerminalView = (props: {
         return
       }
 
-      sendCopySelectionFrame({ session })
+      // A modifier-forced drag (Option/Shift) produced an xterm selection that
+      // onSelectionChange already mirrored; asking tmux to copy could only
+      // echo a stale buffer back over the mirror.
+      if (session.terminal.hasSelection()) {
+        return
+      }
+
+      if (pressPoint === null) {
+        sendCopySelectionFrame({ session })
+
+        return
+      }
+
+      const replayedSelection = replayPaneSwallowedSelection({
+        from: pressPoint,
+        session,
+        to: { x: event.clientX, y: event.clientY },
+      })
+
+      sendCopySelectionFrame({ session, text: replayedSelection })
     }
 
     session.element.addEventListener('mousedown', handleSelectionPressStart)

@@ -77,7 +77,7 @@ export class PtyService {
     this._tmuxService = params.tmuxService
   }
 
-  async copySelection(params: { instanceId: string; mode: TerminalMode }): Promise<string | null> {
+  async copySelection(params: { instanceId: string; mode: TerminalMode; text?: string }): Promise<string | null> {
     if (params.mode !== 'tmux') {
       return null
     }
@@ -102,8 +102,18 @@ export class PtyService {
 
       const rawBufferText = await this._waitForRecentBufferText({ attempt: 1, instance, minCreatedEpochSeconds })
 
+      // No recent tmux buffer means the pane swallowed the drag (mouse
+      // reporting); fall back to the selection the renderer replayed.
       if (rawBufferText === null) {
-        return null
+        if (params.text === undefined || params.text === '') {
+          return null
+        }
+
+        const replayedText = terminalSelectionUtil.toClipboardText({ raw: params.text })
+
+        clipboard.writeText(replayedText)
+
+        return replayedText
       }
 
       const clipboardText = terminalSelectionUtil.toClipboardText({ raw: rawBufferText })

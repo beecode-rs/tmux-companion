@@ -15,6 +15,8 @@ const REMOTE_TMUX_SEARCH_PATH = [
   '/sbin',
 ].join(':')
 
+const REMOTE_HOME_LOOKUP_COMMAND = ['sh', '-c', 'printf %s "$HOME"']
+
 const SHARED_CONNECTION_OPTIONS = [
   '-o',
   'ControlMaster=auto',
@@ -33,6 +35,16 @@ export class SshExecutor implements IExecutor {
 
   constructor(params: { ssh: IInstanceSshConfig }) {
     this._ssh = params.ssh
+  }
+
+  async readHomePath(): Promise<string> {
+    const result = await this.runCommand(REMOTE_HOME_LOOKUP_COMMAND)
+
+    if (result.code !== 0) {
+      throw new Error(this._toHomeLookupErrorMessage({ result }))
+    }
+
+    return result.stdout
   }
 
   run(args: string[]): Promise<IExecFileResult> {
@@ -91,5 +103,15 @@ export class SshExecutor implements IExecutor {
     }
 
     return ['-p', String(this._ssh.port)]
+  }
+
+  protected _toHomeLookupErrorMessage(params: { result: IExecFileResult }): string {
+    const stderrMessage = params.result.stderr.trim()
+
+    if (stderrMessage !== '') {
+      return stderrMessage
+    }
+
+    return `Reading the remote home directory failed with exit code ${String(params.result.code)}`
   }
 }

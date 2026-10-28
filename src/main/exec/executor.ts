@@ -4,6 +4,7 @@ import { type IExecFileResult } from '#src/main/util/exec-file-util'
 import { type IInstance } from '#src/shared/instance-model'
 
 export interface IExecutor {
+  readHomePath: () => Promise<string>
   run: (args: string[]) => Promise<IExecFileResult>
 }
 

@@ -127,8 +127,12 @@ const toWindowIconPath = (): string | undefined => {
   return join(__dirname, '../../build/icons/512x512.png')
 }
 
+const toIsDev = (): boolean => {
+  return process.env.ELECTRON_RENDERER_URL !== undefined
+}
+
 const toAppTitle = (): string => {
-  return appTitleUtil.resolve({ isDev: process.env.ELECTRON_RENDERER_URL !== undefined })
+  return appTitleUtil.resolve({ isDev: toIsDev() })
 }
 
 const createMainWindow = (params: { settingsRepo: SettingsRepo }): BrowserWindow => {
@@ -275,6 +279,7 @@ const bootstrapApp = async (): Promise<void> => {
   const trayService = new TrayService({
     appTitle: toAppTitle(),
     controlModeService,
+    isDev: toIsDev(),
     onActivateSession: (params: { instanceId: string }) => {
       const windowState = settingsRepo.getWindowState()
 
