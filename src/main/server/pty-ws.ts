@@ -19,6 +19,8 @@ const PTY_UNKNOWN_INSTANCE_CLOSE_CODE = 4001
 
 const PTY_WS_PATH_PREFIX = '/pty/'
 
+const PTY_WS_CONTROL_FRAME_TYPES = ['copy-selection', 'get-scroll-state', 'resize', 'scroll']
+
 interface IResizeFrame {
   cols: number
   rows: number
@@ -123,6 +125,12 @@ export class PtyWsServer {
       return
     }
 
+    // A known control frame that failed strict parsing (renderer/main version
+    // skew) must never be typed into the pane as terminal input.
+    if (this._isKnownControlFrame({ text })) {
+      return
+    }
+
     this._ptyService.write({ data: text, instanceId: params.instanceId, mode: params.mode })
   }
 
@@ -198,6 +206,18 @@ export class PtyWsServer {
     this._wss.handleUpgrade(params.request, params.socket, params.head, (ws) => {
       void this._handleConnection({ instanceId, mode, ws })
     })
+  }
+
+  protected _isKnownControlFrame(params: { text: string }): boolean {
+    const parsed = this._toParsedJson({ text: params.text })
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return false
+    }
+
+    const type = (parsed as Record<string, unknown>)['type']
+
+    return typeof type === 'string' && PTY_WS_CONTROL_FRAME_TYPES.includes(type)
   }
 
   protected _isCursorKeys(value: unknown): value is TerminalCursorKeys {
