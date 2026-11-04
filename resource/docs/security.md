@@ -12,6 +12,7 @@ How Tmux Companion handles secrets and its internal communication. The user-faci
 
 - The renderer talks to the main process over an Express + ws server bound to `127.0.0.1` only, on a random port (`listen(0)`) — nothing else on your network can reach it.
 - Every launch generates a fresh random bearer token (`randomBytes`, hex-encoded, compared with `timingSafeEqual`). The renderer receives the port and token through the preload context bridge.
+- Each launch also publishes the port and token in `~/.tmux-companion/api.json` (permissions `0600`, inside your home directory) so other desktop apps of yours, such as usage-pulse's focus button, can call the same local API. The file is rewritten on every launch and removed on quit; anyone able to read it is already running as your user.
 
 ## What is stored, and what is not
 

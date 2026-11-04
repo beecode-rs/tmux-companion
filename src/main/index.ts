@@ -3,6 +3,7 @@ import { join } from 'node:path'
 
 import { SettingsRepo } from '#src/main/business/repo/settings-repo'
 import { ControlModeService } from '#src/main/business/service/control-mode-service'
+import { DeepLinkService } from '#src/main/business/service/deep-link-service'
 import { GhosttyThemeService } from '#src/main/business/service/ghostty-theme-service'
 import { HotkeyService } from '#src/main/business/service/hotkey-service'
 import { InstanceService } from '#src/main/business/service/instance-service'
@@ -13,11 +14,13 @@ import { TerminalLaunchService } from '#src/main/business/service/terminal-launc
 import { TmuxService } from '#src/main/business/service/tmux-service'
 import { TrayService } from '#src/main/business/service/tray-service'
 import { UpdateService } from '#src/main/business/service/update-service'
+import { ApiDiscoveryFile } from '#src/main/server/api-discovery-file'
 import { PtyWsServer } from '#src/main/server/pty-ws'
 import { ApiServer } from '#src/main/server/server'
 import { LocaleEnvUtil } from '#src/main/util/locale-env-util'
 import { LoginPathUtil } from '#src/main/util/login-path-util'
 import { appTitleUtil } from '#src/shared/app-title-util'
+import { APP_URL_SCHEME, deepLinkUtil } from '#src/shared/deep-link-util'
 import { type IInstance } from '#src/shared/instance-model'
 
 const DEFAULT_WINDOW_HEIGHT = 800
@@ -131,6 +134,36 @@ const toIsDev = (): boolean => {
   return process.env.ELECTRON_RENDERER_URL !== undefined
 }
 
+const deepLinkState: { pendingUrls: string[]; service: DeepLinkService | null } = {
+  pendingUrls: [],
+  service: null,
+}
+
+const handleDeepLinkUrl = (url: string): void => {
+  if (deepLinkState.service === null) {
+    deepLinkState.pendingUrls.push(url)
+
+    return
+  }
+
+  const focusParams = deepLinkUtil.parseFocusUrl(url)
+
+  if (focusParams === null) {
+    return
+  }
+
+  void deepLinkState.service.handleFocusParams(focusParams).catch((error: unknown) => {
+    logError({ context: `deep link handling failed for '${url}'`, error })
+  })
+}
+
+const consumePendingDeepLinkUrls = (params: { service: DeepLinkService }): void => {
+  deepLinkState.service = params.service
+  deepLinkState.pendingUrls.splice(0).forEach((url) => {
+    handleDeepLinkUrl(url)
+  })
+}
+
 const toAppTitle = (): string => {
   return appTitleUtil.resolve({ isDev: toIsDev() })
 }
@@ -213,11 +246,33 @@ const bootstrapApp = async (): Promise<void> => {
   const terminalLaunchService = new TerminalLaunchService({ settingsRepo, terminalDetectService })
   const ptyService = new PtyService({ settingsRepo, tmuxService })
   const updateService = new UpdateService()
+  const deepLinkService = new DeepLinkService({
+    onActivateSession: (params) => {
+      const windowState = settingsRepo.getWindowState()
+
+      settingsRepo.saveWindowState({
+        windowState: { ...windowState, selectedInstanceId: params.instanceId },
+      })
+      broadcastSelectionChanged({ instanceId: params.instanceId })
+      ensureMainWindow({ settingsRepo })
+    },
+    onFocusWindow: () => {
+      ensureMainWindow({ settingsRepo })
+    },
+    onSessionSwitched: (params) => {
+      BrowserWindow.getAllWindows().forEach((window) => {
+        window.webContents.send(SESSIONS_CHANGED_CHANNEL, params.instanceId)
+      })
+    },
+    ptyService,
+    settingsRepo,
+  })
 
   terminalLaunchService.ensureDefaultTemplates()
 
   const apiServer = new ApiServer({
     controlModeService,
+    deepLinkService,
     ghosttyThemeService,
     instanceService,
     ptyService,
@@ -230,6 +285,10 @@ const bootstrapApp = async (): Promise<void> => {
   })
 
   const serverInfo = await apiServer.start()
+  const apiDiscoveryFile = new ApiDiscoveryFile()
+
+  apiDiscoveryFile.write({ pid: process.pid, port: serverInfo.port, token: serverInfo.token })
+
   const ptyWsServer = new PtyWsServer({ ptyService, token: serverInfo.token })
 
   ptyWsServer.attach({ httpServer: serverInfo.httpServer })
@@ -312,6 +371,8 @@ const bootstrapApp = async (): Promise<void> => {
     },
   })
 
+  consumePendingDeepLinkUrls({ service: deepLinkService })
+
   trayService.start()
   hotkeyService.start()
 
@@ -327,6 +388,7 @@ const bootstrapApp = async (): Promise<void> => {
     controlModeService.stopAll()
     ptyService.destroyAll()
     ptyWsServer.stop()
+    apiDiscoveryFile.remove()
     void apiServer.stop()
   })
 }
@@ -337,9 +399,42 @@ app.on('window-all-closed', () => {
   }
 })
 
-void app
-  .whenReady()
-  .then(bootstrapApp)
-  .catch((error: unknown) => {
-    logError({ context: 'bootstrap failed', error })
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  handleDeepLinkUrl(url)
+})
+
+const isSingleInstance = app.requestSingleInstanceLock()
+
+if (isSingleInstance) {
+  if (app.isPackaged) {
+    app.setAsDefaultProtocolClient(APP_URL_SCHEME)
+  }
+
+  app.on('second-instance', (_event, argv) => {
+    const focusUrl = argv.find((arg) => {
+      return arg.startsWith(`${APP_URL_SCHEME}://`)
+    })
+
+    if (focusUrl !== undefined) {
+      handleDeepLinkUrl(focusUrl)
+    }
   })
+
+  const launchUrl = process.argv.find((arg) => {
+    return arg.startsWith(`${APP_URL_SCHEME}://`)
+  })
+
+  if (launchUrl !== undefined) {
+    handleDeepLinkUrl(launchUrl)
+  }
+
+  void app
+    .whenReady()
+    .then(bootstrapApp)
+    .catch((error: unknown) => {
+      logError({ context: 'bootstrap failed', error })
+    })
+} else {
+  app.quit()
+}

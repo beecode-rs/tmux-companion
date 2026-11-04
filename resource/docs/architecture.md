@@ -6,8 +6,8 @@ Electron's three-process layout:
   compatibility contract.
 - **main** (`src/main/`) — settings repo (electron-store), an executor layer (local `execFile('tmux')` /
   `ssh … tmux` with shell-quoted args), services for tmux operations, instances, terminal detection/launch,
-  ptys, control-mode event subscriptions, Ghostty theme import, tray and global hotkey — plus an Express+ws API
-  on localhost that the renderer talks to.
+  ptys, control-mode event subscriptions, Ghostty theme import, tray, global hotkey and deep-link focus — plus an
+  Express+ws API on localhost that the renderer talks to.
 - **renderer** (`src/renderer/`) — a React app shell: sidebar with instances and sessions, xterm.js terminal view
   over a WebSocket per instance, instance dialog, settings and about pages.
 

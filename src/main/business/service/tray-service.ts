@@ -8,10 +8,6 @@ import { type ITrayIconColor, trayIconUtil } from '#src/main/business/service/tr
 import { type IInstance } from '#src/shared/instance-model'
 import { type ISessionInfo } from '#src/shared/session-model'
 
-const ACTIVATE_MAX_ATTEMPTS = 3
-
-const ACTIVATE_RETRY_DELAY_MS = 600
-
 const TRAY_ICON_DARK_THEME_COLOR_RGB: ITrayIconColor = [255, 255, 255]
 
 const TRAY_ICON_DEV_COLOR_RGB: ITrayIconColor = [34, 197, 94]
@@ -196,8 +192,7 @@ export class TrayService {
 
     this._onActivateSession({ instanceId: params.instanceId })
 
-    const isSwitched = await this._toSwitchedResult({
-      attempt: 1,
+    const isSwitched = await this._ptyService.attachSession({
       instance,
       name: params.name,
     })
@@ -213,7 +208,7 @@ export class TrayService {
   protected async _handleCreateSession(params: { instance: IInstance }): Promise<void> {
     try {
       const name = await this._tmuxService.createSession({ instance: params.instance })
-      const isSwitched = await this._toSwitchedResult({ attempt: 1, instance: params.instance, name })
+      const isSwitched = await this._ptyService.attachSession({ instance: params.instance, name })
 
       if (isSwitched) {
         this._settingsRepo.setLastSession({ fullSessionName: name, instanceId: params.instance.id })
@@ -341,23 +336,6 @@ export class TrayService {
     })
   }
 
-  protected async _toSwitchedResult(params: { attempt: number; instance: IInstance; name: string }): Promise<boolean> {
-    if (params.attempt > ACTIVATE_MAX_ATTEMPTS) {
-      return false
-    }
-
-    try {
-      await this._ptyService.getOrCreate({ instanceId: params.instance.id, mode: 'tmux' })
-      await this._ptyService.switchAttachedClient({ instance: params.instance, name: params.name })
-
-      return true
-    } catch {
-      await this._delay({ durationMs: ACTIVATE_RETRY_DELAY_MS })
-
-      return await this._toSwitchedResult({ attempt: params.attempt + 1, instance: params.instance, name: params.name })
-    }
-  }
-
   protected _toInstance(params: { instanceId: string }): IInstance {
     const knownInstance = this._settingsRepo.getInstances().find((instance) => {
       return instance.id === params.instanceId
@@ -425,11 +403,5 @@ export class TrayService {
     }
 
     this._tray.setImage(this._toTrayImage())
-  }
-
-  protected _delay(params: { durationMs: number }): Promise<void> {
-    return new Promise((resolve) => {
-      setTimeout(resolve, params.durationMs)
-    })
   }
 }

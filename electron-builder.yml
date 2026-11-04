@@ -1,5 +1,9 @@
 appId: com.tmux-companion.app
 productName: Tmux Companion
+protocols:
+  - name: Tmux Companion
+    schemes:
+      - tmux-companion
 directories:
   output: dist
 files:

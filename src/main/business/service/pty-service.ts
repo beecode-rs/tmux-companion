@@ -34,6 +34,10 @@ const DEFAULT_COLS = 80
 
 const DEFAULT_ROWS = 24
 
+const SESSION_ATTACH_MAX_ATTEMPTS = 3
+
+const SESSION_ATTACH_RETRY_DELAY_MS = 600
+
 const EMPTY_SCROLL_STATE_FRAME: IScrollStateFrame = { historySize: 0, isInCopyMode: false, scrollPosition: 0 }
 
 const MACHINE_FALLBACK_SHELL = '/bin/zsh'
@@ -143,6 +147,10 @@ export class PtyService {
     keys.forEach((key) => {
       this._destroyKey({ key })
     })
+  }
+
+  async attachSession(params: { instance: IInstance; name: string }): Promise<boolean> {
+    return await this._toAttachedResult({ attempt: 1, instance: params.instance, name: params.name })
   }
 
   async getOrCreate(params: { instanceId: string; mode: TerminalMode }): Promise<IPty> {
@@ -609,6 +617,27 @@ export class PtyService {
     return new Promise((resolve) => {
       setTimeout(resolve, params.durationMs)
     })
+  }
+
+  protected async _toAttachedResult(params: { attempt: number; instance: IInstance; name: string }): Promise<boolean> {
+    if (params.attempt > SESSION_ATTACH_MAX_ATTEMPTS) {
+      return false
+    }
+
+    try {
+      await this.getOrCreate({ instanceId: params.instance.id, mode: 'tmux' })
+      await this.switchAttachedClient({ instance: params.instance, name: params.name })
+
+      return true
+    } catch {
+      await this._delay({ durationMs: SESSION_ATTACH_RETRY_DELAY_MS })
+
+      return await this._toAttachedResult({
+        attempt: params.attempt + 1,
+        instance: params.instance,
+        name: params.name,
+      })
+    }
   }
 
   protected _scheduleClientTtyResolution(params: { instanceId: string }): void {

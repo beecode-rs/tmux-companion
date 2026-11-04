@@ -1,0 +1,60 @@
+subject: deepLinkUtil
+module: ./deep-link-util.js
+subjectType: function
+methods:
+  parseFocusUrl:
+    terms:
+      # Local focus link: no host params, session only.
+      - params:
+          - 'tmux-companion://focus?session=s01'
+        result:
+          sessionName: s01
+      # Ssh focus link carries host, port and user.
+      - params:
+          - 'tmux-companion://focus?session=s02&host=remote.example&port=2222&user=deploy'
+        result:
+          host: remote.example
+          port: 2222
+          sessionName: s02
+          user: deploy
+      # Host without port/user resolves to the bare ssh target.
+      - params:
+          - 'tmux-companion://focus?host=10.0.0.5&session=s03'
+        result:
+          host: 10.0.0.5
+          sessionName: s03
+      # Session names with spaces survive URL encoding.
+      - params:
+          - 'tmux-companion://focus?session=my%20work'
+        result:
+          sessionName: my work
+      # A different scheme is not ours.
+      - params:
+          - 'https://focus?session=s01'
+        result: null
+      # Missing session param rejects the link.
+      - params:
+          - 'tmux-companion://focus?host=remote.example'
+        result: null
+      # Out-of-range port is dropped rather than trusted.
+      - params:
+          - 'tmux-companion://focus?session=s01&port=99999'
+        result:
+          sessionName: s01
+      # Malformed URL yields null.
+      - params:
+          - 'tmux-companion://'
+        result: null
+  buildFocusUrl:
+    terms:
+      # Local session builds the scheme + focus host + session param.
+      - params:
+          - sessionName: s01
+        result: 'tmux-companion://focus?session=s01'
+      # Full ssh target keeps host, port and user in the query.
+      - params:
+          - host: remote.example
+            port: 2222
+            sessionName: s02
+            user: deploy
+        result: 'tmux-companion://focus?session=s02&host=remote.example&port=2222&user=deploy'

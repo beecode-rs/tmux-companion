@@ -5,6 +5,7 @@ import { type AddressInfo } from 'node:net'
 
 import { type SettingsRepo } from '#src/main/business/repo/settings-repo'
 import { type ControlModeService } from '#src/main/business/service/control-mode-service'
+import { type DeepLinkService } from '#src/main/business/service/deep-link-service'
 import { type GhosttyThemeService } from '#src/main/business/service/ghostty-theme-service'
 import { type InstanceService } from '#src/main/business/service/instance-service'
 import { type PtyService } from '#src/main/business/service/pty-service'
@@ -15,6 +16,7 @@ import { tmuxParseUtil } from '#src/main/business/service/tmux-parse-util'
 import { type TmuxService } from '#src/main/business/service/tmux-service'
 import { type UpdateService } from '#src/main/business/service/update-service'
 import { type SessionEventsMode } from '#src/shared/api-model'
+import { type IDeepLinkFocusParams } from '#src/shared/deep-link-util'
 import { type IInstance, type IInstanceSshConfig } from '#src/shared/instance-model'
 import { sessionNamingUtil } from '#src/shared/session-naming-util'
 import { type IAppSettings } from '#src/shared/settings-model'
@@ -38,6 +40,13 @@ interface ICreateInstanceBody {
 
 interface ICreateSessionBody {
   name?: string
+}
+
+interface IFocusRequestBody {
+  host?: unknown
+  port?: unknown
+  session?: unknown
+  user?: unknown
 }
 
 interface IRenameSessionBody {
@@ -80,6 +89,8 @@ export class ApiServer {
 
   protected readonly _controlModeService: ControlModeService
 
+  protected readonly _deepLinkService: DeepLinkService
+
   protected readonly _ghosttyThemeService: GhosttyThemeService
 
   protected readonly _instanceService: InstanceService
@@ -102,6 +113,7 @@ export class ApiServer {
 
   constructor(params: {
     controlModeService: ControlModeService
+    deepLinkService: DeepLinkService
     ghosttyThemeService: GhosttyThemeService
     instanceService: InstanceService
     ptyService: PtyService
@@ -115,6 +127,7 @@ export class ApiServer {
     this._app = express()
     this._httpServer = createServer(this._app)
     this._controlModeService = params.controlModeService
+    this._deepLinkService = params.deepLinkService
     this._ghosttyThemeService = params.ghosttyThemeService
     this._instanceService = params.instanceService
     this._ptyService = params.ptyService
@@ -247,6 +260,14 @@ export class ApiServer {
     const instance = this._toInstance({ id: this._toRouteParam({ key: 'id', req: params.req }) })
 
     this._ptyService.destroy({ instanceId: instance.id })
+    params.res.sendStatus(204)
+  }
+
+  protected async _handleFocus(params: { req: Request; res: Response }): Promise<void> {
+    const body = params.req.body as IFocusRequestBody
+
+    await this._deepLinkService.handleFocusParams(this._toFocusParams({ body }))
+
     params.res.sendStatus(204)
   }
 
@@ -444,6 +465,7 @@ export class ApiServer {
 
   protected _isValidationMessage(params: { message: string }): boolean {
     const validationPatterns = [
+      'Focus requires',
       'Invalid session name',
       'Label cannot be empty',
       'Session name',
@@ -501,6 +523,7 @@ export class ApiServer {
     )
     this._app.get('/api/terminals', this._toHandler({ handler: this._handleListTerminals.bind(this) }))
     this._app.get('/api/theme', this._toHandler({ handler: this._handleGetTheme.bind(this) }))
+    this._app.post('/api/focus', this._toHandler({ handler: this._handleFocus.bind(this) }))
     this._app.get('/api/updates/latest', this._toHandler({ handler: this._handleCheckUpdate.bind(this) }))
     this._app.get(
       '/api/updates/latest/download',
@@ -598,6 +621,33 @@ export class ApiServer {
     }
 
     return instance
+  }
+
+  protected _toFocusParams(params: { body: IFocusRequestBody }): IDeepLinkFocusParams {
+    const session = params.body.session
+
+    if (typeof session !== 'string' || session === '') {
+      throw new Error('Focus requires a session name')
+    }
+
+    const focusParams: IDeepLinkFocusParams = { sessionName: session }
+    const host = params.body.host
+    const user = params.body.user
+    const port = params.body.port
+
+    if (typeof host === 'string' && host !== '') {
+      focusParams.host = host
+    }
+
+    if (typeof user === 'string' && user !== '') {
+      focusParams.user = user
+    }
+
+    if (typeof port === 'number' && Number.isInteger(port) && port >= 1 && port <= 65_535) {
+      focusParams.port = port
+    }
+
+    return focusParams
   }
 
   protected _toRouteParam(params: { key: string; req: Request }): string {

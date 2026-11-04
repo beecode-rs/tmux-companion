@@ -48,6 +48,7 @@ The titles link to each feature's section in [resource/docs/features.md](resourc
 - **Embedded terminal** — an xterm.js terminal runs your real shell inside your real tmux, without touching `~/.tmux.conf` or your shell rc.
 - **Ghostty theme import** — optionally import your Ghostty theme so the embedded terminal matches your standalone terminal.
 - **External-terminal launches** — open any session in Ghostty, Terminal.app, iTerm2, or another installed terminal, using user-editable launch templates.
+- **Deep-link focus**: other apps (like [usage-pulse](https://github.com/beecode-rs/usage-pulse)) can raise and switch to a specific session, through the local API while the app is running or a `tmux-companion://` link when it is not.
 - **SSH hosts** — remote machines connect through the system `ssh` binary with your keys and `~/.ssh/config` aliases; the app never handles passwords.
 
 For a deeper look at each feature — settings, edge cases, and how things work under the hood — see [resource/docs/features.md](resource/docs/features.md).
@@ -67,6 +68,7 @@ Done:
 - [x] Embedded terminal with optional Ghostty theme import
 - [x] Launching sessions in external terminals with editable templates
 - [x] Listing Relay-created sessions without renaming or renumbering them
+- [x] Deep-link focus so other apps can raise and switch to a session
 
 Planned:
 

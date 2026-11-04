@@ -50,6 +50,13 @@ The detail behind the README's feature list — how sessions are named and numbe
   - Linux: Ghostty, GNOME Terminal, Ptyxis, kitty, Alacritty, WezTerm, Konsole, Tilix, xterm
 - Launch commands are user-editable templates with a `{cmd}` placeholder for the command to run.
 
+## Deep-link focus
+
+- Other tools can raise a specific session in this app. [usage-pulse](https://github.com/beecode-rs/usage-pulse) uses it for its focus button: local sessions whose agent runs inside tmux (where no terminal window owns the process) and remote SSH sessions both land here as the focus target of last resort.
+- While the app is running, the focus request goes straight to the local API: `POST /api/focus` on `127.0.0.1` with the session name and, for a remote machine, the ssh host/user/port. The port and bearer token are published in `~/.tmux-companion/api.json` (user-only permissions, rewritten each launch, removed on quit). This path works for dev runs and packaged builds alike.
+- When the app is not running, the `tmux-companion://` URL scheme takes over: `tmux-companion://focus?session=s01` for the Local instance, or `tmux-companion://focus?session=s02&host=remote.example&port=2222&user=deploy` for the SSH instance matching that target. The scheme is registered by packaged builds only; a dev instance cannot be launched through it (macOS would start a raw Electron binary), which is why the running-app path exists.
+- Handling a request selects the instance, switches its embedded terminal to the session (same as the tray menu), and focuses the app window. If no instance matches, the window is focused without switching.
+
 ## Settings
 
 - **Confirm before kill** — ask before killing a session (off by default).
