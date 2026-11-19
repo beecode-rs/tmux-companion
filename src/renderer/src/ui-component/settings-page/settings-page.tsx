@@ -3,6 +3,7 @@ import { type ReactElement, useEffect, useState } from 'react'
 import { ApiClient } from '#src/renderer/src/business/service/api-client'
 import { useInstances } from '#src/renderer/src/business/service/instances-store'
 import { useUpdateStore } from '#src/renderer/src/business/service/update-store'
+import { LocalNetworkPermissionSection } from '#src/renderer/src/ui-component/settings-page/local-network-permission-section'
 import { errorMessageUtil } from '#src/renderer/src/util/error-message-util'
 import { type ITerminalInfo, type IUpdateSettingsRequest } from '#src/shared/api-model'
 import { appTitleUtil } from '#src/shared/app-title-util'
@@ -330,6 +331,7 @@ export const SettingsPage = (props: ISettingsPageProps): ReactElement => {
           <span>Import theme from the Ghostty config</span>
         </label>
       </section>
+      {window.tmuxCompanion.platform === 'darwin' && <LocalNetworkPermissionSection />}
       <section className="settings-page-section">
         <h2 className="settings-page-section-title">Version</h2>
         <div className="settings-page-version-row">

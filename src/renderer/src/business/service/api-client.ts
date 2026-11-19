@@ -7,6 +7,7 @@ import {
   type IInstanceResponse,
   type IListInstancesResponse,
   type IListSessionsResponse,
+  type ILocalNetworkPermissionResponse,
   type IRenameSessionRequest,
   type ISessionNameResponse,
   type ISwitchSessionResponse,
@@ -38,6 +39,10 @@ export class ApiClient {
     } catch (error) {
       return { failure: updateCheckErrorUtil.toUnknownFailure({ error }), status: 'failed' }
     }
+  }
+
+  checkLocalNetworkPermission(): Promise<ILocalNetworkPermissionResponse> {
+    return this._requestJson({ method: 'GET', path: '/api/permissions/local-network' })
   }
 
   cloneSession(

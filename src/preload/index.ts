@@ -56,6 +56,7 @@ contextBridge.exposeInMainWorld('tmuxCompanion', {
   openExternal: (url: string): Promise<void> => {
     return shell.openExternal(url)
   },
+  platform: process.platform,
   selectedInstanceId: serverInfo?.selectedInstanceId ?? null,
   serverPort: serverInfo?.serverPort ?? 0,
   serverToken: serverInfo?.serverToken ?? '',

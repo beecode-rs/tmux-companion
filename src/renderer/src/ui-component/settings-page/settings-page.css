@@ -181,3 +181,26 @@
   margin: 0 auto;
   max-width: 640px;
 }
+
+.settings-page-permission-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.settings-page-permission-status {
+  font-size: 12px;
+}
+
+.settings-page-permission-status--allowed {
+  color: #5fbf87;
+}
+
+.settings-page-permission-status--blocked {
+  color: #e08080;
+}
+
+.settings-page-permission-status--pending {
+  color: #8a8a91;
+}

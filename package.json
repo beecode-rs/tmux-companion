@@ -75,6 +75,10 @@
 	},
 	"packageManager": "pnpm@10.18.1",
 	"pnpm": {
+		"ignoredBuiltDependencies": [
+			"electron-winstaller",
+			"unrs-resolver"
+		],
 		"onlyBuiltDependencies": [
 			"electron",
 			"esbuild",

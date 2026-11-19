@@ -146,3 +146,11 @@ export interface IUpdateDownloadStatusResponse {
   status: UpdateDownloadStatus
   totalBytes: number
 }
+
+export type LocalNetworkPermissionStatus = 'allowed' | 'blocked' | 'unprobeable' | 'unsupported'
+
+export interface ILocalNetworkPermissionResponse {
+  detail: string | null
+  probeAddress: string | null
+  status: LocalNetworkPermissionStatus
+}

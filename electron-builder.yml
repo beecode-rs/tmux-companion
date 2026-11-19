@@ -20,6 +20,12 @@ asar: true
 mac:
   category: public.app-category.developer-tools
   identity: null
+  # macOS Local Network privacy attributes every process in the app's tmux server
+  # (ssh, ping, shells) to this app; without this key LAN traffic can fail with
+  # "No route to host". Ad-hoc signing means each release is a new identity, so
+  # users may need to re-allow it in Privacy & Security > Local Network after updates.
+  extendInfo:
+    NSLocalNetworkUsageDescription: Tmux Companion needs local network access so SSH and other commands run in its terminals can reach hosts on your network.
   artifactName: Tmux-Companion-${version}-${arch}.dmg
   target:
     - target: dmg

@@ -10,6 +10,7 @@ declare global {
       openExternal: (url: string) => Promise<void>
       onSelectionChanged: (callback: (instanceId: string) => void) => () => void
       onSessionsChanged: (callback: (instanceId: string) => void) => () => void
+      platform: string
       selectedInstanceId: string | null
       serverPort: number
       serverToken: string

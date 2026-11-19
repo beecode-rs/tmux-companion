@@ -8,6 +8,7 @@ import { type ControlModeService } from '#src/main/business/service/control-mode
 import { type DeepLinkService } from '#src/main/business/service/deep-link-service'
 import { type GhosttyThemeService } from '#src/main/business/service/ghostty-theme-service'
 import { type InstanceService } from '#src/main/business/service/instance-service'
+import { type LocalNetworkPermissionService } from '#src/main/business/service/local-network-permission-service'
 import { type PtyService } from '#src/main/business/service/pty-service'
 import { type SshConnectionService } from '#src/main/business/service/ssh-connection-service'
 import { type TerminalDetectService } from '#src/main/business/service/terminal-detect-service'
@@ -95,6 +96,8 @@ export class ApiServer {
 
   protected readonly _instanceService: InstanceService
 
+  protected readonly _localNetworkPermissionService: LocalNetworkPermissionService
+
   protected readonly _ptyService: PtyService
 
   protected readonly _settingsRepo: SettingsRepo
@@ -116,6 +119,7 @@ export class ApiServer {
     deepLinkService: DeepLinkService
     ghosttyThemeService: GhosttyThemeService
     instanceService: InstanceService
+    localNetworkPermissionService: LocalNetworkPermissionService
     ptyService: PtyService
     settingsRepo: SettingsRepo
     sshConnectionService: SshConnectionService
@@ -130,6 +134,7 @@ export class ApiServer {
     this._deepLinkService = params.deepLinkService
     this._ghosttyThemeService = params.ghosttyThemeService
     this._instanceService = params.instanceService
+    this._localNetworkPermissionService = params.localNetworkPermissionService
     this._ptyService = params.ptyService
     this._settingsRepo = params.settingsRepo
     this._sshConnectionService = params.sshConnectionService
@@ -179,6 +184,12 @@ export class ApiServer {
     ) {
       throw new Error('Invalid session name')
     }
+  }
+
+  protected async _handleCheckLocalNetworkPermission(params: { req: Request; res: Response }): Promise<void> {
+    const permission = await this._localNetworkPermissionService.check()
+
+    params.res.json(permission)
   }
 
   protected async _handleCloneSession(params: { req: Request; res: Response }): Promise<void> {
@@ -532,6 +543,10 @@ export class ApiServer {
     this._app.post('/api/updates/latest/download', this._toHandler({ handler: this._handleDownloadUpdate.bind(this) }))
     this._app.post('/api/updates/restart', this._toHandler({ handler: this._handleRestartUpdate.bind(this) }))
     this._app.post('/api/connection-tests', this._toHandler({ handler: this._handleTestConnection.bind(this) }))
+    this._app.get(
+      '/api/permissions/local-network',
+      this._toHandler({ handler: this._handleCheckLocalNetworkPermission.bind(this) }),
+    )
     this._app.put('/api/settings', this._toHandler({ handler: this._handleUpdateSettings.bind(this) }))
     this._app.put('/api/settings/terminal', this._toHandler({ handler: this._handleUpdateTerminalSetting.bind(this) }))
   }

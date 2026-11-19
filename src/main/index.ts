@@ -7,6 +7,7 @@ import { DeepLinkService } from '#src/main/business/service/deep-link-service'
 import { GhosttyThemeService } from '#src/main/business/service/ghostty-theme-service'
 import { HotkeyService } from '#src/main/business/service/hotkey-service'
 import { InstanceService } from '#src/main/business/service/instance-service'
+import { LocalNetworkPermissionService } from '#src/main/business/service/local-network-permission-service'
 import { PtyService } from '#src/main/business/service/pty-service'
 import { SshConnectionService } from '#src/main/business/service/ssh-connection-service'
 import { TerminalDetectService } from '#src/main/business/service/terminal-detect-service'
@@ -246,6 +247,7 @@ const bootstrapApp = async (): Promise<void> => {
   const terminalLaunchService = new TerminalLaunchService({ settingsRepo, terminalDetectService })
   const ptyService = new PtyService({ settingsRepo, tmuxService })
   const updateService = new UpdateService()
+  const localNetworkPermissionService = new LocalNetworkPermissionService()
   const deepLinkService = new DeepLinkService({
     onActivateSession: (params) => {
       const windowState = settingsRepo.getWindowState()
@@ -275,6 +277,7 @@ const bootstrapApp = async (): Promise<void> => {
     deepLinkService,
     ghosttyThemeService,
     instanceService,
+    localNetworkPermissionService,
     ptyService,
     settingsRepo,
     sshConnectionService,
@@ -311,6 +314,18 @@ const bootstrapApp = async (): Promise<void> => {
 
   // eslint-disable-next-line no-console
   console.info(`tmux-companion api listening on 127.0.0.1:${String(serverInfo.port)} token=${serverInfo.token}`)
+
+  if (process.platform === 'darwin') {
+    void localNetworkPermissionService
+      .check()
+      .then((result) => {
+        // eslint-disable-next-line no-console
+        console.info(`tmux-companion local network permission status: ${result.status}`)
+      })
+      .catch((error: unknown) => {
+        logError({ context: 'local network permission check failed', error })
+      })
+  }
 
   createMainWindow({ settingsRepo })
 

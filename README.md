@@ -99,6 +99,8 @@ Alternatively, clear the quarantine flag from a Terminal:
 xattr -cr '/Applications/Tmux Companion.app'
 ```
 
+> **Local network access:** commands run in Tmux Companion terminals (for example `ssh` to a `.lan` host) need macOS Local Network permission. Allow it when prompted, or enable **Tmux Companion** under **System Settings → Privacy & Security → Local Network**. Because the builds are unsigned, macOS treats each update as a new app, so you may need to re-enable it after updating. Without it, LAN connections fail with `No route to host`.
+
 **Ubuntu — AppImage**: make it executable and run it (no install needed):
 
 ```bash

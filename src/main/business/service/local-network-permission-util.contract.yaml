@@ -1,0 +1,114 @@
+subject: localNetworkPermissionUtil
+module: ./local-network-permission-util.js
+subjectType: function
+methods:
+  toInterfaceRank:
+    terms:
+      # Physical apple interfaces (en0/en1) are probed before everything else.
+      - params:
+          - name: en0
+        result: 0
+      - params:
+          - name: en5
+        result: 0
+      # Any other interface ranks behind en*.
+      - params:
+          - name: bridge100
+        result: 1
+      - params:
+          - name: awdl0
+        result: 1
+  toProbeAddresses:
+    terms:
+      # A physical interface IPv4 address is a probe candidate.
+      - params:
+          - interfaces:
+              - address: 192.168.1.5
+                family: IPv4
+                internal: false
+                name: en0
+        result:
+          - 192.168.1.5
+      # Loopback and IPv6 addresses never pass the local network gate.
+      - params:
+          - interfaces:
+              - address: 127.0.0.1
+                family: IPv4
+                internal: true
+                name: lo0
+              - address: fe80::1
+                family: IPv6
+                internal: false
+                name: en0
+        result: []
+      # VPN interfaces are skipped even when they carry an IPv4 address.
+      - params:
+          - interfaces:
+              - address: 10.8.0.2
+                family: IPv4
+                internal: false
+                name: utun3
+              - address: 192.168.1.5
+                family: IPv4
+                internal: false
+                name: en0
+        result:
+          - 192.168.1.5
+      # en* addresses are probed before other broadcast-capable interfaces.
+      - params:
+          - interfaces:
+              - address: 169.254.12.4
+                family: IPv4
+                internal: false
+                name: awdl0
+              - address: 192.168.1.5
+                family: IPv4
+                internal: false
+                name: en0
+        result:
+          - 192.168.1.5
+          - 169.254.12.4
+      # The same address on two interfaces is probed once.
+      - params:
+          - interfaces:
+              - address: 192.168.1.5
+                family: IPv4
+                internal: false
+                name: en0
+              - address: 192.168.1.5
+                family: IPv4
+                internal: false
+                name: en1
+        result:
+          - 192.168.1.5
+  toStatus:
+    terms:
+      # Any allowed probe means local network access works.
+      - params:
+          - outcomes:
+              - blocked
+              - allowed
+        result: allowed
+      - params:
+          - outcomes:
+              - allowed
+        result: allowed
+      # A definitive deny beats an inconclusive timeout.
+      - params:
+          - outcomes:
+              - timeout
+              - blocked
+        result: blocked
+      - params:
+          - outcomes:
+              - blocked
+              - blocked
+        result: blocked
+      # Without an allowed or blocked outcome nothing is definitive.
+      - params:
+          - outcomes:
+              - timeout
+        result: unprobeable
+      - params:
+          - outcomes: []
+        result: unprobeable
